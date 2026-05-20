@@ -1,0 +1,5 @@
+{
+  "tsconfig": "tsconfig.typedoc.json",
+  "entryPoints": ["./src/index.ts", "./src/utils/scene/index.ts"],
+  "intentionallyNotExported": ["SceneManagerProps", "Listener"]
+}

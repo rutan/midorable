@@ -1,0 +1,18 @@
+{
+  "$schema": "../node_modules/oxlint/configuration_schema.json",
+  "plugins": [],
+  "jsPlugins": ["eslint-plugin-tsdoc"],
+  "rules": {
+    "no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
+    ],
+    "no-redundant-type-constituents": "off",
+    "unicorn/no-single-promise-in-promise-methods": "off",
+    "tsdoc/syntax": "error"
+  }
+}

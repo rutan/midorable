@@ -1,0 +1,1 @@
+export { NinePatchSceneDef } from './NinePatchScene';

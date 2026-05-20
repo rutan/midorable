@@ -1,0 +1,107 @@
+name: Deploy to GitHub Pages
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/setup-node
+
+      - name: Build
+        run: pnpm run build && pnpm run build-docs
+
+      - name: Create deployment directory structure
+        run: |
+          mkdir -p ./dist
+          mv ./apps/example/dist ./dist/example
+          mv ./apps/particle-editor/dist ./dist/particle-editor
+          mv ./typedoc ./dist/typedoc
+
+      - name: Create index.html for root
+        run: |
+          cat > ./dist/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="ja">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Midorable</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 2rem;
+              }
+              h1 { color: #2c3e50; }
+              .links {
+                display: flex;
+                gap: 2rem;
+                margin-top: 2rem;
+              }
+              .link-card {
+                flex: 1;
+                padding: 1.5rem;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                text-decoration: none;
+                color: inherit;
+                transition: box-shadow 0.3s;
+              }
+              .link-card:hover {
+                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+              }
+              .link-card h2 {
+                margin: 0 0 0.5rem 0;
+                color: #3498db;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>Midorable</h1>
+            <div class="links">
+              <a href="./example/" class="link-card">
+                <h2>📦 Example</h2>
+                <p>Example project</p>
+              </a>
+              <a href="./particle-editor/" class="link-card">
+                <h2>🎨 Particle Editor</h2>
+                <p>Particle editor application</p>
+              </a>
+              <a href="./typedoc/" class="link-card">
+                <h2>📚 API Documentation</h2>
+                <p>Generated API documentation</p>
+              </a>
+            </div>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload static files as artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: dist/
+
+  deploy:
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

@@ -1,0 +1,6 @@
+{
+  "name": "midorable",
+  "entryPoints": ["packages/*"],
+  "entryPointStrategy": "packages",
+  "out": "./typedoc"
+}

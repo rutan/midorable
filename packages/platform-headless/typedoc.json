@@ -1,0 +1,4 @@
+{
+  "tsconfig": "tsconfig.typedoc.json",
+  "entryPoints": ["./src/index.ts"]
+}

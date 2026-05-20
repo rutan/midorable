@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>example</title>
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div class="wrapper">
+      <main class="game" id="game-container">
+        <div id="root"></div>
+      </main>
+      <nav class="menu">
+        <div class="menu-left">
+          <select id="platform-selector">
+            <option value="canvas">Canvas</option>
+            <option value="webgl">WebGL</option>
+            <option value="webgpu">WebGPU</option>
+          </select>
+        </div>
+        <div class="menu-right">
+          <button id="fullscreen-button">Full Screen</button>
+        </div>
+      </nav>
+    </div>
+    <script type="module" src="./src/index.ts"></script>
+  </body>
+</html>

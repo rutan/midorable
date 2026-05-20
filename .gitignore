@@ -1,0 +1,6 @@
+.turbo
+
+typedoc
+node_modules
+dist
+tmp

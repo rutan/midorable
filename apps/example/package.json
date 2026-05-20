@@ -1,0 +1,21 @@
+{
+  "name": "example",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "vite preview",
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "run-s lint:*",
+    "lint:oxlint": "oxlint --type-aware",
+    "lint:tsc": "tsgo",
+    "format": "oxlint --type-aware --fix"
+  },
+  "dependencies": {
+    "@rutan/midorable": "workspace:*",
+    "@rutan/midorable-platform-browser": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "name": "@rutan/midorable",
+  "version": "0.0.0",
+  "description": "A simple and portable game engine.",
+  "keywords": [
+    "game"
+  ],
+  "homepage": "https://github.com/rutan/midorable",
+  "license": "MIT",
+  "author": "rutan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rutan/midorable"
+  },
+  "files": [
+    "dist/**/*",
+    "src/**/*"
+  ],
+  "type": "module",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./utils/scene": {
+      "types": "./dist/utils/scene/index.d.mts",
+      "import": "./dist/utils/scene/index.mjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "run-s build:*",
+    "build:tsdown": "tsdown",
+    "lint": "run-s lint:*",
+    "lint:oxlint": "oxlint --type-aware .",
+    "lint:tsc": "tsgo",
+    "test": "vitest run",
+    "test-watch": "vitest",
+    "format": "oxlint --type-aware --fix ."
+  },
+  "engines": {
+    "node": ">= 24.0"
+  }
+}

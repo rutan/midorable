@@ -1,0 +1,5 @@
+{
+  "tsconfig": "tsconfig.typedoc.json",
+  "entryPoints": ["./src/index.ts"],
+  "intentionallyNotExported": ["BrowserInput", "BrowserSurface", "BrowserPlatformBase", "BrowserPlatformConfig"]
+}
