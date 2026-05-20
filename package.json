@@ -12,7 +12,10 @@
     "lint:turbo": "turbo lint",
     "format": "run-s format:*",
     "format:oxfmt": "oxfmt --write",
-    "format:turbo": "turbo format"
+    "format:turbo": "turbo format",
+    "release": "run-s build release:*",
+    "release:packages": "changeset publish",
+    "changeset": "changeset"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.7.0",
