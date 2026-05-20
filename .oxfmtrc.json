@@ -9,5 +9,5 @@
     "internalPattern": ["$"],
     "newlinesBetween": false
   },
-  "ignorePatterns": ["pnpm-*.yaml", "*.gen.ts"]
+  "ignorePatterns": ["pnpm-*.yaml", "*.gen.ts", ".changeset/*"]
 }
