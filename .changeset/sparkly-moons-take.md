@@ -2,4 +2,4 @@
 "@rutan/midorable": patch
 ---
 
-smooth fixed update cadence near target fp
+smooth fixed update cadence near target fps
