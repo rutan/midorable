@@ -320,7 +320,7 @@ export class App {
         accumulator -= stepMs;
         updates += 1;
       }
-      if (updates === 1 && accumulator > 0 && accumulator < stepSnapToleranceMs) {
+      if (updates >= 1 && accumulator > 0 && accumulator < stepSnapToleranceMs) {
         accumulator = 0;
       }
       this.render();

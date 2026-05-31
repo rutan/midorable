@@ -84,4 +84,17 @@ describe('App lifecycle', () => {
 
     expect(updateSpy).toHaveBeenCalledTimes(2);
   });
+
+  it('snaps small remainder after multiple catch-up updates', async () => {
+    const mock = createMockPlatform();
+    const app = new App({ platform: mock.platform, fps: 60 });
+    const updateSpy = vi.spyOn(app, 'update');
+    await app.start();
+
+    mock.triggerTick(1);
+    mock.triggerTick(51.2);
+    mock.triggerTick(68.6);
+
+    expect(updateSpy).toHaveBeenCalledTimes(4);
+  });
 });
