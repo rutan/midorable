@@ -5,6 +5,9 @@ import { Platform, PlatformFeatureRegistry, RenderFilterCapabilities } from './p
 import { FilterInstance, ShaderFilterDefinition, Texture } from './renderer';
 import { Color, CursorName, MediaQuery, MediaSupportLevel } from './types';
 
+const MAX_STEP_SNAP_TOLERANCE_MS = 1;
+const STEP_SNAP_TOLERANCE_RATIO = 0.06;
+
 /**
  * App の設定オブジェクト
  */
@@ -286,6 +289,7 @@ export class App {
     this._isRunning = true;
 
     const stepMs = 1000 / this._fps;
+    const stepSnapToleranceMs = Math.min(MAX_STEP_SNAP_TOLERANCE_MS, stepMs * STEP_SNAP_TOLERANCE_RATIO);
     let lastTime = 0;
     let accumulator = 0;
     const tick = (now: number) => {
@@ -300,6 +304,9 @@ export class App {
       lastTime = now;
       this.updateStats(now, delta);
       accumulator += delta;
+      if (accumulator > stepMs - stepSnapToleranceMs && accumulator < stepMs) {
+        accumulator = stepMs;
+      }
       let updates = 0;
       while (accumulator >= stepMs) {
         // 長時間の非アクティブなどで永久に早送りになることを防ぐため、
@@ -312,6 +319,9 @@ export class App {
         this.update();
         accumulator -= stepMs;
         updates += 1;
+      }
+      if (updates >= 1 && accumulator > 0 && accumulator < stepSnapToleranceMs) {
+        accumulator = 0;
       }
       this.render();
     };

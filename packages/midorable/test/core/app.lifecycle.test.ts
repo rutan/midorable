@@ -71,4 +71,30 @@ describe('App lifecycle', () => {
     expect(app.stats.frameDeltaMs).toBe(200);
     expect(app.stats.actualFps).toBeCloseTo(10, 5);
   });
+
+  it('snaps near-target frame timing to avoid alternating skipped updates', async () => {
+    const mock = createMockPlatform();
+    const app = new App({ platform: mock.platform, fps: 60 });
+    const updateSpy = vi.spyOn(app, 'update');
+    await app.start();
+
+    mock.triggerTick(1);
+    mock.triggerTick(17.2);
+    mock.triggerTick(34.6);
+
+    expect(updateSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('snaps small remainder after multiple catch-up updates', async () => {
+    const mock = createMockPlatform();
+    const app = new App({ platform: mock.platform, fps: 60 });
+    const updateSpy = vi.spyOn(app, 'update');
+    await app.start();
+
+    mock.triggerTick(1);
+    mock.triggerTick(51.2);
+    mock.triggerTick(68.6);
+
+    expect(updateSpy).toHaveBeenCalledTimes(4);
+  });
 });
