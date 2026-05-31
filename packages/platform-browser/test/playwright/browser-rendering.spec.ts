@@ -138,7 +138,7 @@ function decodePng(buffer: Buffer): PngImage {
   let width = 0;
   let height = 0;
   let colorType = 0;
-  const idatChunks: Buffer[] = [];
+  const idatChunks: Uint8Array[] = [];
 
   while (offset < buffer.length) {
     const length = buffer.readUInt32BE(offset);
@@ -151,7 +151,7 @@ function decodePng(buffer: Buffer): PngImage {
       height = data.readUInt32BE(4);
       colorType = data[9] ?? 0;
     } else if (type === 'IDAT') {
-      idatChunks.push(data);
+      idatChunks.push(Uint8Array.from(data));
     } else if (type === 'IEND') {
       break;
     }
@@ -165,7 +165,7 @@ function decodePng(buffer: Buffer): PngImage {
   }
 
   const bytesPerPixel = colorType === 6 ? 4 : 3;
-  const inflated = inflateSync(Buffer.concat(idatChunks));
+  const inflated = inflateSync(concatUint8Arrays(idatChunks));
   const stride = width * bytesPerPixel;
   const output = new Uint8Array(width * height * 4);
   let inputOffset = 0;
@@ -191,6 +191,19 @@ function decodePng(buffer: Buffer): PngImage {
   }
 
   return { width, height, data: output };
+}
+
+function concatUint8Arrays(chunks: readonly Uint8Array[]): Uint8Array {
+  const length = chunks.reduce((total, chunk) => total + chunk.length, 0);
+  const output = new Uint8Array(length);
+  let offset = 0;
+
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  return output;
 }
 
 function unfilterRow(row: Uint8Array, previous: Uint8Array, bytesPerPixel: number, filter: number) {
