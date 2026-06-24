@@ -56,8 +56,14 @@ function getFreePort() {
 
 async function resolveTestPort() {
   const configuredPort = process.env.PLAYWRIGHT_BENCH_PORT;
-  if (configuredPort) {
-    return Number(configuredPort);
+  if (configuredPort !== undefined && configuredPort !== '') {
+    const port = Number(configuredPort);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error(
+        `PLAYWRIGHT_BENCH_PORT must be an integer between 1 and 65535, got ${JSON.stringify(configuredPort)}`,
+      );
+    }
+    return port;
   }
 
   const port = await getFreePort();

@@ -12,7 +12,7 @@ interface BrowserBenchmarkResult {
   name: BenchmarkName;
   kind: PlatformKind;
   frames: number;
-  sprites: number;
+  iterations: number;
   meanMs: number;
   p95Ms: number;
   maxMs: number;

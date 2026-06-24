@@ -16,7 +16,7 @@ interface BrowserBenchmarkResult {
   name: BenchmarkName;
   kind: PlatformKind;
   frames: number;
-  sprites: number;
+  iterations: number;
   meanMs: number;
   p95Ms: number;
   maxMs: number;
@@ -257,7 +257,7 @@ async function runMeshBenchmark(kind: PlatformKind): Promise<BrowserBenchmarkRes
 async function runRendererBenchmark(
   kind: PlatformKind,
   name: BenchmarkName,
-  sprites: number,
+  iterations: number,
   draw: (
     platform: BrowserPlatformBase,
     texture: Texture,
@@ -286,7 +286,7 @@ async function runRendererBenchmark(
     const startedAt = performance.now();
     platform.renderer.beginFrame();
     platform.renderer.clear({ r: 0, g: 0, b: 0, a: 1 });
-    draw(platform, texture, frame, size, sprites, filter);
+    draw(platform, texture, frame, size, iterations, filter);
     platform.renderer.endFrame();
     const duration = performance.now() - startedAt;
     if (frame >= warmupFrames) {
@@ -299,7 +299,7 @@ async function runRendererBenchmark(
     name,
     kind,
     frames,
-    sprites,
+    iterations,
     meanMs: mean(durations),
     p95Ms: percentile(durations, 0.95),
     maxMs: Math.max(...durations),
