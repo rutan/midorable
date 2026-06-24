@@ -1,5 +1,12 @@
 # @rutan/midorable-platform-headless
 
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies [[`a6bf69e`](https://github.com/rutan/midorable/commit/a6bf69e18a8be37cfbce1fe76abf3cee10276bb9)]:
+  - @rutan/midorable@0.1.2
+
 ## 0.1.1
 
 ### Patch Changes
