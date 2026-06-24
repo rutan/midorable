@@ -6,6 +6,7 @@ export class CanvasBackedTexture implements Texture {
   height: number;
   isShared = false;
   private _surface: Canvas2DTextureSurface;
+  private _revision = 0;
 
   constructor(width: number, height: number, source?: HTMLImageElement | HTMLCanvasElement) {
     this.width = width;
@@ -13,6 +14,9 @@ export class CanvasBackedTexture implements Texture {
     this._surface = new Canvas2DTextureSurface({
       getSize: () => ({ width: this.width, height: this.height }),
       sourceImage: source,
+      onDirty: () => {
+        this._revision += 1;
+      },
     });
 
     if (!source) {
@@ -26,6 +30,10 @@ export class CanvasBackedTexture implements Texture {
       throw new Error('CanvasBackedTexture source is not initialized');
     }
     return resolved;
+  }
+
+  get revision(): number {
+    return this._revision;
   }
 
   dispose() {

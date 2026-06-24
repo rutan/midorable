@@ -9,6 +9,7 @@ import {
   RenderState,
   ShaderFilterDefinition,
 } from '@rutan/midorable';
+import { CanvasBackedTexture } from '../internal/CanvasBackedTexture';
 import { clamp01, clamp255 } from '../internal/utilities';
 import { WebGlFilterInstance } from './WebGlFilterInstance';
 
@@ -35,7 +36,18 @@ type SourceTextureCacheEntry = {
   texture: WebGLTexture;
   uploadedImageWidth: number;
   uploadedImageHeight: number;
+  uploadedCanvasRevision: number | null;
   smooth: boolean;
+};
+
+type SpriteBatch = {
+  source: HTMLImageElement | HTMLCanvasElement;
+  sourceRevision: number | null;
+  target: RenderTarget;
+  texture: WebGLTexture;
+  blendMode: RenderState['blendMode'];
+  smooth: boolean;
+  vertices: number[];
 };
 
 export class WebGlRenderer implements Renderer, RendererMeshFeature {
@@ -46,9 +58,9 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
   private _spriteProgram!: WebGLProgram;
   private _spriteAPositionLocation!: number;
   private _spriteAUvLocation!: number;
+  private _spriteAAlphaLocation!: number;
+  private _spriteAToneLocation!: number;
   private _spriteUTextureLocation!: WebGLUniformLocation;
-  private _spriteUAlphaLocation!: WebGLUniformLocation;
-  private _spriteUToneLocation!: WebGLUniformLocation;
   private _meshProgram!: WebGLProgram;
   private _meshAPositionLocation!: number;
   private _meshAUvLocation!: number;
@@ -60,6 +72,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
   private _maskAUvLocation!: number;
   private _maskUContentTextureLocation!: WebGLUniformLocation;
   private _maskUMaskTextureLocation!: WebGLUniformLocation;
+  private _spriteVertexBuffer!: WebGLBuffer;
   private _positionBuffer!: WebGLBuffer;
   private _uvBuffer!: WebGLBuffer;
   private _meshIndexBuffer!: WebGLBuffer;
@@ -75,6 +88,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
   private _targetStack: RenderTarget[] = [];
   private _maskStack: MaskStackEntry[] = [];
   private _filterStack: FilterStackEntry[] = [];
+  private _spriteBatch: SpriteBatch | null = null;
   private _frameActive = false;
   private _contextLost = false;
   private _offscreenSampleCount: number;
@@ -97,6 +111,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     this._targetStack = [];
     this._maskStack = [];
     this._filterStack = [];
+    this._spriteBatch = null;
   }
 
   onContextRestored() {
@@ -108,6 +123,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     this._targetStack = [];
     this._maskStack = [];
     this._filterStack = [];
+    this._spriteBatch = null;
     this._renderTargetPool.clear();
     this._sourceTextureCache = new WeakMap<HTMLImageElement | HTMLCanvasElement, SourceTextureCacheEntry>();
     this._ownedTextures.clear();
@@ -147,6 +163,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
   }
 
   endFrame() {
+    this.flushSpriteBatch();
     this._frameActive = false;
     this._maskStack = [];
     this._filterStack = [];
@@ -163,6 +180,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
       return;
     }
 
+    this.flushSpriteBatch();
     const gl = this._gl;
     const currentTarget = this.currentTarget;
     if (!currentTarget) {
@@ -183,7 +201,19 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     if (!(source instanceof HTMLImageElement) && !(source instanceof HTMLCanvasElement)) {
       return;
     }
-    const texture = this.resolveTexture(source, state.smooth);
+
+    const sourceRevision = source instanceof HTMLCanvasElement ? getCanvasBackedTextureRevision(image) : null;
+    const canBatchSource = source instanceof HTMLImageElement || sourceRevision !== null;
+    if (!canBatchSource) {
+      this.flushSpriteBatch();
+    } else if (
+      this._spriteBatch?.source === source &&
+      (this._spriteBatch.smooth !== state.smooth || this._spriteBatch.sourceRevision !== sourceRevision)
+    ) {
+      this.flushSpriteBatch();
+    }
+
+    const texture = this.resolveTexture(source, state.smooth, sourceRevision);
     if (!texture) {
       return;
     }
@@ -195,19 +225,44 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     }
 
     const uv = buildUv(image, frame ?? null);
-    this.drawTextureWithSpriteProgram({
+    const alpha = clamp01(state.alpha);
+    const toneR = clamp255(state.colorTone.r) / 255;
+    const toneG = clamp255(state.colorTone.g) / 255;
+    const toneB = clamp255(state.colorTone.b) / 255;
+    const toneA = clamp01(state.colorTone.a);
+
+    if (!canBatchSource) {
+      const vertices: number[] = [];
+      appendSpriteVertices(vertices, currentTarget.width, currentTarget.height, state, width, height, uv, {
+        alpha,
+        toneR,
+        toneG,
+        toneB,
+        toneA,
+      });
+      this.drawSpriteVerticesWithProgram({
+        texture,
+        target: currentTarget,
+        vertices,
+        blendMode: state.blendMode,
+      });
+      return;
+    }
+
+    this.queueSpriteBatch({
+      source,
+      sourceRevision,
       texture,
       target: currentTarget,
       state,
       drawWidth: width,
       drawHeight: height,
       uv,
-      alpha: clamp01(state.alpha),
-      toneR: clamp255(state.colorTone.r) / 255,
-      toneG: clamp255(state.colorTone.g) / 255,
-      toneB: clamp255(state.colorTone.b) / 255,
-      toneA: clamp01(state.colorTone.a),
-      blendMode: state.blendMode,
+      alpha,
+      toneR,
+      toneG,
+      toneB,
+      toneA,
     });
   }
 
@@ -217,6 +272,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
       return;
     }
 
+    this.flushSpriteBatch();
     const source = params.image.source;
     if (!(source instanceof HTMLImageElement) && !(source instanceof HTMLCanvasElement)) {
       return;
@@ -289,6 +345,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
       return false;
     }
 
+    this.flushSpriteBatch();
     const enabledFilters = filters.filter(
       (filter): filter is WebGlFilterInstance =>
         filter instanceof WebGlFilterInstance && filter.enabled && !filter.isDisposed,
@@ -317,6 +374,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
       return;
     }
 
+    this.flushSpriteBatch();
     const entry = this._filterStack.pop();
     const sourceTarget = this._targetStack.pop();
     const parentTarget = this.currentTarget;
@@ -370,6 +428,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
       return;
     }
 
+    this.flushSpriteBatch();
     const parentTarget = this.currentTarget;
     if (!parentTarget) {
       return;
@@ -390,6 +449,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
       return;
     }
 
+    this.flushSpriteBatch();
     const entry = this._maskStack[this._maskStack.length - 1];
     if (!entry) {
       return;
@@ -410,6 +470,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
       return;
     }
 
+    this.flushSpriteBatch();
     const entry = this._maskStack.pop();
     const currentTarget = this._targetStack.pop();
     if (!entry || currentTarget !== entry.maskTarget) {
@@ -441,6 +502,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
       this._canvas.height = height;
       return;
     }
+    this.flushSpriteBatch();
     this.clearRenderTargetPool();
     this._canvas.width = width;
     this._canvas.height = height;
@@ -449,6 +511,9 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
 
   releaseTextureSource(source: HTMLImageElement | HTMLCanvasElement) {
     const gl = this._gl;
+    if (this._spriteBatch?.source === source) {
+      this.flushSpriteBatch();
+    }
     const entry = this._sourceTextureCache.get(source);
     if (!entry) {
       return;
@@ -484,6 +549,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     }
     this._ownedPrograms.clear();
 
+    gl.deleteBuffer(this._spriteVertexBuffer);
     gl.deleteBuffer(this._positionBuffer);
     gl.deleteBuffer(this._uvBuffer);
     gl.deleteBuffer(this._meshIndexBuffer);
@@ -662,7 +728,11 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
   }
 
-  private resolveTexture(source: HTMLImageElement | HTMLCanvasElement, smooth: boolean): WebGLTexture | null {
+  private resolveTexture(
+    source: HTMLImageElement | HTMLCanvasElement,
+    smooth: boolean,
+    canvasRevision: number | null = null,
+  ): WebGLTexture | null {
     let entry = this._sourceTextureCache.get(source) ?? null;
     if (!entry) {
       const texture = this._gl.createTexture();
@@ -673,6 +743,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
         texture,
         uploadedImageWidth: 0,
         uploadedImageHeight: 0,
+        uploadedCanvasRevision: null,
         smooth,
       };
       this._sourceTextureCache.set(source, entry);
@@ -697,6 +768,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
         this._gl.texImage2D(this._gl.TEXTURE_2D, 0, this._gl.RGBA, this._gl.RGBA, this._gl.UNSIGNED_BYTE, source);
         entry.uploadedImageWidth = width;
         entry.uploadedImageHeight = height;
+        entry.uploadedCanvasRevision = null;
       }
       return entry.texture;
     }
@@ -704,7 +776,18 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     if (source.width <= 0 || source.height <= 0) {
       return null;
     }
+    if (
+      canvasRevision !== null &&
+      entry.uploadedImageWidth === source.width &&
+      entry.uploadedImageHeight === source.height &&
+      entry.uploadedCanvasRevision === canvasRevision
+    ) {
+      return entry.texture;
+    }
     this._gl.texImage2D(this._gl.TEXTURE_2D, 0, this._gl.RGBA, this._gl.RGBA, this._gl.UNSIGNED_BYTE, source);
+    entry.uploadedImageWidth = source.width;
+    entry.uploadedImageHeight = source.height;
+    entry.uploadedCanvasRevision = canvasRevision;
     return entry.texture;
   }
 
@@ -735,7 +818,9 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     }
   }
 
-  private drawTextureWithSpriteProgram(params: {
+  private queueSpriteBatch(params: {
+    source: HTMLImageElement | HTMLCanvasElement;
+    sourceRevision: number | null;
     texture: WebGLTexture;
     target: RenderTarget;
     state: RenderState;
@@ -747,39 +832,94 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     toneG: number;
     toneB: number;
     toneA: number;
-    blendMode: RenderState['blendMode'];
   }) {
-    const gl = this._gl;
+    const currentBatch = this._spriteBatch;
+    if (
+      !currentBatch ||
+      currentBatch.target !== params.target ||
+      currentBatch.texture !== params.texture ||
+      currentBatch.blendMode !== params.state.blendMode ||
+      currentBatch.smooth !== params.state.smooth
+    ) {
+      this.flushSpriteBatch();
+      this._spriteBatch = {
+        source: params.source,
+        sourceRevision: params.sourceRevision,
+        target: params.target,
+        texture: params.texture,
+        blendMode: params.state.blendMode,
+        smooth: params.state.smooth,
+        vertices: [],
+      };
+    }
 
-    const positions = buildClipSpacePositions(
+    appendSpriteVertices(
+      this._spriteBatch!.vertices,
       params.target.width,
       params.target.height,
       params.state,
       params.drawWidth,
       params.drawHeight,
+      params.uv,
+      {
+        alpha: params.alpha,
+        toneR: params.toneR,
+        toneG: params.toneG,
+        toneB: params.toneB,
+        toneA: params.toneA,
+      },
     );
+  }
+
+  private flushSpriteBatch() {
+    const batch = this._spriteBatch;
+    if (!batch) {
+      return;
+    }
+    this._spriteBatch = null;
+    if (batch.vertices.length === 0) {
+      return;
+    }
+    this.drawSpriteVerticesWithProgram({
+      texture: batch.texture,
+      target: batch.target,
+      vertices: batch.vertices,
+      blendMode: batch.blendMode,
+    });
+  }
+
+  private drawSpriteVerticesWithProgram(params: {
+    texture: WebGLTexture;
+    target: RenderTarget;
+    vertices: number[];
+    blendMode: RenderState['blendMode'];
+  }) {
+    const gl = this._gl;
+    const vertexCount = Math.floor(params.vertices.length / SPRITE_VERTEX_FLOATS);
+    if (vertexCount <= 0) {
+      return;
+    }
 
     this.bindTarget(params.target);
     this.setBlendMode(params.blendMode);
     gl.useProgram(this._spriteProgram);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STREAM_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._spriteVertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(params.vertices), gl.STREAM_DRAW);
     gl.enableVertexAttribArray(this._spriteAPositionLocation);
-    gl.vertexAttribPointer(this._spriteAPositionLocation, 2, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._uvBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, params.uv, gl.STREAM_DRAW);
+    gl.vertexAttribPointer(this._spriteAPositionLocation, 2, gl.FLOAT, false, SPRITE_VERTEX_STRIDE, 0);
     gl.enableVertexAttribArray(this._spriteAUvLocation);
-    gl.vertexAttribPointer(this._spriteAUvLocation, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(this._spriteAUvLocation, 2, gl.FLOAT, false, SPRITE_VERTEX_STRIDE, 2 * FLOAT_BYTES);
+    gl.enableVertexAttribArray(this._spriteAAlphaLocation);
+    gl.vertexAttribPointer(this._spriteAAlphaLocation, 1, gl.FLOAT, false, SPRITE_VERTEX_STRIDE, 4 * FLOAT_BYTES);
+    gl.enableVertexAttribArray(this._spriteAToneLocation);
+    gl.vertexAttribPointer(this._spriteAToneLocation, 4, gl.FLOAT, false, SPRITE_VERTEX_STRIDE, 5 * FLOAT_BYTES);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, params.texture);
     gl.uniform1i(this._spriteUTextureLocation, 0);
-    gl.uniform1f(this._spriteUAlphaLocation, params.alpha);
-    gl.uniform4f(this._spriteUToneLocation, params.toneR, params.toneG, params.toneB, params.toneA);
 
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
   }
 
   private drawMeshWithProgram(params: {
@@ -928,9 +1068,9 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
 
     this._spriteAPositionLocation = getAttributeLocation(gl, this._spriteProgram, 'a_position');
     this._spriteAUvLocation = getAttributeLocation(gl, this._spriteProgram, 'a_uv');
+    this._spriteAAlphaLocation = getAttributeLocation(gl, this._spriteProgram, 'a_alpha');
+    this._spriteAToneLocation = getAttributeLocation(gl, this._spriteProgram, 'a_tone');
     this._spriteUTextureLocation = getUniformLocation(gl, this._spriteProgram, 'u_texture');
-    this._spriteUAlphaLocation = getUniformLocation(gl, this._spriteProgram, 'u_alpha');
-    this._spriteUToneLocation = getUniformLocation(gl, this._spriteProgram, 'u_tone');
 
     this._meshAPositionLocation = getAttributeLocation(gl, this._meshProgram, 'a_position');
     this._meshAUvLocation = getAttributeLocation(gl, this._meshProgram, 'a_uv');
@@ -942,6 +1082,12 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     this._maskAUvLocation = getAttributeLocation(gl, this._maskProgram, 'a_uv');
     this._maskUContentTextureLocation = getUniformLocation(gl, this._maskProgram, 'u_content_texture');
     this._maskUMaskTextureLocation = getUniformLocation(gl, this._maskProgram, 'u_mask_texture');
+
+    const spriteVertexBuffer = gl.createBuffer();
+    if (!spriteVertexBuffer) {
+      throw new Error('Failed to create WebGL sprite vertex buffer');
+    }
+    this._spriteVertexBuffer = spriteVertexBuffer;
 
     const positionBuffer = gl.createBuffer();
     if (!positionBuffer) {
@@ -1074,18 +1220,41 @@ function getUniformLocationOptional(
   return gl.getUniformLocation(program, name);
 }
 
-function buildClipSpacePositions(
+function getCanvasBackedTextureRevision(image: RenderableImage): number | null {
+  return image instanceof CanvasBackedTexture ? image.revision : null;
+}
+
+function appendSpriteVertices(
+  result: number[],
   targetWidth: number,
   targetHeight: number,
   state: RenderState,
   width: number,
   height: number,
-): Float32Array {
+  uv: Float32Array,
+  color: { alpha: number; toneR: number; toneG: number; toneB: number; toneA: number },
+): void {
   const p0 = applyTransform(state, 0, 0, targetWidth, targetHeight);
   const p1 = applyTransform(state, width, 0, targetWidth, targetHeight);
   const p2 = applyTransform(state, 0, height, targetWidth, targetHeight);
   const p3 = applyTransform(state, width, height, targetWidth, targetHeight);
-  return new Float32Array([p0.x, p0.y, p1.x, p1.y, p2.x, p2.y, p2.x, p2.y, p1.x, p1.y, p3.x, p3.y]);
+  appendSpriteVertex(result, p0.x, p0.y, uv[0] ?? 0, uv[1] ?? 0, color);
+  appendSpriteVertex(result, p1.x, p1.y, uv[2] ?? 0, uv[3] ?? 0, color);
+  appendSpriteVertex(result, p2.x, p2.y, uv[4] ?? 0, uv[5] ?? 0, color);
+  appendSpriteVertex(result, p2.x, p2.y, uv[6] ?? 0, uv[7] ?? 0, color);
+  appendSpriteVertex(result, p1.x, p1.y, uv[8] ?? 0, uv[9] ?? 0, color);
+  appendSpriteVertex(result, p3.x, p3.y, uv[10] ?? 0, uv[11] ?? 0, color);
+}
+
+function appendSpriteVertex(
+  result: number[],
+  x: number,
+  y: number,
+  u: number,
+  v: number,
+  color: { alpha: number; toneR: number; toneG: number; toneB: number; toneA: number },
+): void {
+  result.push(x, y, u, v, color.alpha, color.toneR, color.toneG, color.toneB, color.toneA);
 }
 
 function buildMeshClipSpacePositions(
@@ -1182,20 +1351,29 @@ void main() {
 `;
 }
 
+const FLOAT_BYTES = 4;
+const SPRITE_VERTEX_FLOATS = 9;
+const SPRITE_VERTEX_STRIDE = SPRITE_VERTEX_FLOATS * FLOAT_BYTES;
 const FULLSCREEN_TRIANGLE_POSITIONS = new Float32Array([-1, 1, 1, 1, -1, -1, -1, -1, 1, 1, 1, -1]);
 const FULLSCREEN_TRIANGLE_UV = new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]);
 
 const SPRITE_VERTEX_SHADER_SOURCE = `#version 300 es
 in vec2 a_position;
 in vec2 a_uv;
+in float a_alpha;
+in vec4 a_tone;
 out vec2 v_uv;
+out float v_alpha;
+out vec4 v_tone;
 void main() {
   gl_Position = vec4(a_position, 0.0, 1.0);
   v_uv = a_uv;
+  v_alpha = a_alpha;
+  v_tone = a_tone;
 }
 `;
 
-const MESH_VERTEX_SHADER_SOURCE = `#version 300 es
+const TEXTURED_VERTEX_SHADER_SOURCE = `#version 300 es
 in vec2 a_position;
 in vec2 a_uv;
 out vec2 v_uv;
@@ -1204,6 +1382,8 @@ void main() {
   v_uv = a_uv;
 }
 `;
+
+const MESH_VERTEX_SHADER_SOURCE = TEXTURED_VERTEX_SHADER_SOURCE;
 
 const MESH_FRAGMENT_SHADER_SOURCE = `#version 300 es
 precision mediump float;
@@ -1222,18 +1402,18 @@ void main() {
 const SPRITE_FRAGMENT_SHADER_SOURCE = `#version 300 es
 precision mediump float;
 uniform sampler2D u_texture;
-uniform float u_alpha;
-uniform vec4 u_tone;
 in vec2 v_uv;
+in float v_alpha;
+in vec4 v_tone;
 out vec4 outColor;
 void main() {
   vec4 sampled = texture(u_texture, v_uv);
-  vec3 toned = mix(sampled.rgb, u_tone.rgb, u_tone.a);
-  outColor = vec4(toned, sampled.a * u_alpha);
+  vec3 toned = mix(sampled.rgb, v_tone.rgb, v_tone.a);
+  outColor = vec4(toned, sampled.a * v_alpha);
 }
 `;
 
-const MASK_VERTEX_SHADER_SOURCE = SPRITE_VERTEX_SHADER_SOURCE;
+const MASK_VERTEX_SHADER_SOURCE = TEXTURED_VERTEX_SHADER_SOURCE;
 
 const MASK_FRAGMENT_SHADER_SOURCE = `#version 300 es
 precision mediump float;
@@ -1249,4 +1429,4 @@ void main() {
 }
 `;
 
-const FILTER_VERTEX_SHADER_SOURCE = SPRITE_VERTEX_SHADER_SOURCE;
+const FILTER_VERTEX_SHADER_SOURCE = TEXTURED_VERTEX_SHADER_SOURCE;
