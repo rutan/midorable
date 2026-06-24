@@ -1,5 +1,16 @@
 # @rutan/midorable-platform-browser
 
+## 0.2.0
+
+### Minor Changes
+
+- [#7](https://github.com/rutan/midorable/pull/7) [`32dc45c`](https://github.com/rutan/midorable/commit/32dc45cdae213dbf2c3020499903e51f46ff7ec6) Thanks [@rutan](https://github.com/rutan)! - add sprite batch
+
+### Patch Changes
+
+- Updated dependencies [[`a6bf69e`](https://github.com/rutan/midorable/commit/a6bf69e18a8be37cfbce1fe76abf3cee10276bb9)]:
+  - @rutan/midorable@0.1.2
+
 ## 0.1.1
 
 ### Patch Changes
