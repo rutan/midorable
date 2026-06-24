@@ -8,6 +8,10 @@
     "test": {
       "dependsOn": ["^build", "build"]
     },
+    "bench": {
+      "dependsOn": ["^build", "build"],
+      "cache": false
+    },
     "lint": {
       "dependsOn": ["^build", "build"]
     },

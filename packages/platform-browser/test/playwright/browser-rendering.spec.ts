@@ -3,10 +3,21 @@ import { expect, test } from '@playwright/test';
 
 type PlatformKind = 'canvas' | 'webgl' | 'webgpu';
 type SmokeName = 'sprite' | 'mask' | 'filter' | 'mesh' | 'dispose';
+type BenchmarkName = 'sprites' | 'mask' | 'filter' | 'nine-patch' | 'mesh';
 type Rgba = [number, number, number, number];
 
 interface SmokeResult {
   canvasAttached: boolean;
+}
+
+interface BrowserBenchmarkResult {
+  name: BenchmarkName;
+  kind: PlatformKind;
+  frames: number;
+  sprites: number;
+  meanMs: number;
+  p95Ms: number;
+  maxMs: number;
 }
 
 const pixelRendererKinds: PlatformKind[] = ['canvas', 'webgl'];
@@ -251,6 +262,7 @@ declare global {
     __midorableBrowserSmoke: {
       supports(kind: PlatformKind): Promise<boolean>;
       run(kind: PlatformKind, name: SmokeName): Promise<SmokeResult>;
+      benchmark(kind: PlatformKind, name: BenchmarkName): Promise<BrowserBenchmarkResult>;
       cleanup(): void;
     };
   }

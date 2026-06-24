@@ -42,6 +42,7 @@
     "access": "public"
   },
   "scripts": {
+    "bench": "playwright test --config playwright.bench.config.ts",
     "build": "run-s build:*",
     "build:tsdown": "tsdown",
     "lint": "run-s lint:*",

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "bench": "turbo bench",
     "build": "turbo build",
     "build-docs": "typedoc",
     "dev": "turbo dev",
