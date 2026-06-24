@@ -48,6 +48,12 @@ export function createEventHandlers<T>() {
      * @param event - 発火するイベントのデータ
      */
     emit(event: T) {
+      if (listeners.length === 0) return;
+      if (listeners.length === 1) {
+        listeners[0](event);
+        return;
+      }
+
       const snapshot = listeners.slice();
       for (const listener of snapshot) {
         listener(event);
