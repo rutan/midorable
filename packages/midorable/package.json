@@ -41,6 +41,8 @@
     "lint:tsc": "tsgo",
     "test": "vitest run",
     "test-watch": "vitest",
+    "bench": "vitest bench --run",
+    "bench-watch": "vitest bench --watch",
     "format": "oxlint --type-aware --fix ."
   },
   "engines": {

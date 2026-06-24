@@ -6,9 +6,20 @@ import { createWebGpuPlatform } from '../../../../src/webgpu';
 
 type PlatformKind = 'canvas' | 'webgl' | 'webgpu';
 type SmokeName = 'sprite' | 'mask' | 'filter' | 'mesh' | 'dispose';
+type BenchmarkName = 'sprites' | 'mask' | 'filter' | 'nine-patch' | 'mesh';
 
 interface SmokeResult {
   canvasAttached: boolean;
+}
+
+interface BrowserBenchmarkResult {
+  name: BenchmarkName;
+  kind: PlatformKind;
+  frames: number;
+  iterations: number;
+  meanMs: number;
+  p95Ms: number;
+  maxMs: number;
 }
 
 let activePlatform: BrowserPlatformBase | null = null;
@@ -22,12 +33,12 @@ const identityState: RenderState = {
   smooth: false,
 };
 
-async function createPlatform(kind: PlatformKind): Promise<BrowserPlatformBase> {
+async function createPlatform(kind: PlatformKind, size = 64): Promise<BrowserPlatformBase> {
   cleanup();
 
   const host = document.createElement('div');
-  host.style.width = '64px';
-  host.style.height = '64px';
+  host.style.width = `${size}px`;
+  host.style.height = `${size}px`;
   document.body.append(host);
 
   switch (kind) {
@@ -41,9 +52,13 @@ async function createPlatform(kind: PlatformKind): Promise<BrowserPlatformBase> 
 }
 
 function translatedState(x: number, y: number): RenderState {
+  return transformedState(x, y, 1, 1);
+}
+
+function transformedState(x: number, y: number, scaleX: number, scaleY: number): RenderState {
   return {
     ...identityState,
-    transform: { ...identityState.transform, tx: x, ty: y },
+    transform: { a: scaleX, b: 0, c: 0, d: scaleY, tx: x, ty: y },
   };
 }
 
@@ -150,6 +165,175 @@ async function runDisposeSmoke(kind: PlatformKind): Promise<SmokeResult> {
   };
 }
 
+async function runSpriteBenchmark(kind: PlatformKind): Promise<BrowserBenchmarkResult> {
+  return runRendererBenchmark(kind, 'sprites', 400, (platform, texture, frame, size, count) => {
+    for (let index = 0; index < count; index += 1) {
+      const x = (index * 13 + frame) % size;
+      const y = (index * 17 + frame * 2) % size;
+      platform.renderer.drawSprite(texture, translatedState(x, y));
+    }
+  });
+}
+
+async function runMaskBenchmark(kind: PlatformKind): Promise<BrowserBenchmarkResult> {
+  return runRendererBenchmark(kind, 'mask', 120, (platform, texture, frame, size, count) => {
+    for (let index = 0; index < count; index += 1) {
+      const x = (index * 13 + frame) % size;
+      const y = (index * 17 + frame * 2) % size;
+      platform.renderer.pushMask();
+      platform.renderer.drawSprite(texture, transformedState(x, y, 2, 2));
+      platform.renderer.activateMask();
+      platform.renderer.drawSprite(texture, translatedState(x + 4, y + 4));
+      platform.renderer.popMask();
+    }
+  });
+}
+
+async function runFilterBenchmark(kind: PlatformKind): Promise<BrowserBenchmarkResult> {
+  return runRendererBenchmark(
+    kind,
+    'filter',
+    80,
+    (platform, texture, frame, size, count, filter) => {
+      if (!filter) {
+        throw new Error('filter benchmark requires a filter');
+      }
+      for (let index = 0; index < count; index += 1) {
+        const x = (index * 19 + frame) % size;
+        const y = (index * 23 + frame * 2) % size;
+        if (platform.renderer.pushFilters([filter], translatedState(x, y))) {
+          platform.renderer.drawSprite(texture, translatedState(x, y));
+          platform.renderer.popFilters();
+        }
+      }
+    },
+    { createFilter: true },
+  );
+}
+
+async function runNinePatchBenchmark(kind: PlatformKind): Promise<BrowserBenchmarkResult> {
+  const frames = [
+    { x: 0, y: 0, width: 8, height: 8 },
+    { x: 8, y: 0, width: 16, height: 8 },
+    { x: 24, y: 0, width: 8, height: 8 },
+    { x: 0, y: 8, width: 8, height: 16 },
+    { x: 8, y: 8, width: 16, height: 16 },
+    { x: 24, y: 8, width: 8, height: 16 },
+    { x: 0, y: 24, width: 8, height: 8 },
+    { x: 8, y: 24, width: 16, height: 8 },
+    { x: 24, y: 24, width: 8, height: 8 },
+  ];
+  return runRendererBenchmark(kind, 'nine-patch', 80, (platform, texture, frame, size, count) => {
+    for (let index = 0; index < count; index += 1) {
+      const x = (index * 17 + frame) % size;
+      const y = (index * 11 + frame * 2) % size;
+      const width = 48 + (index % 4) * 8;
+      const height = 32 + (index % 3) * 8;
+      drawNinePatch(platform, texture, frames, x, y, width, height);
+    }
+  });
+}
+
+async function runMeshBenchmark(kind: PlatformKind): Promise<BrowserBenchmarkResult> {
+  return runRendererBenchmark(kind, 'mesh', 200, (platform, texture, frame, size, count) => {
+    const mesh = platform.getFeature('renderer.mesh');
+    if (!mesh) {
+      throw new Error('renderer.mesh is not supported');
+    }
+    for (let index = 0; index < count; index += 1) {
+      const x = (index * 13 + frame) % size;
+      const y = (index * 17 + frame * 2) % size;
+      mesh.drawTexturedTriangles({
+        image: texture,
+        state: identityState,
+        positions: [x, y, x + 16, y, x, y + 16],
+        uvs: [0, 0, 1, 0, 0, 1],
+        indices: [0, 1, 2],
+      });
+    }
+  });
+}
+
+async function runRendererBenchmark(
+  kind: PlatformKind,
+  name: BenchmarkName,
+  iterations: number,
+  draw: (
+    platform: BrowserPlatformBase,
+    texture: Texture,
+    frame: number,
+    size: number,
+    count: number,
+    filter?: FilterInstance,
+  ) => void,
+  options: { createFilter?: boolean } = {},
+): Promise<BrowserBenchmarkResult> {
+  const frames = 120;
+  const warmupFrames = 20;
+  const size = 256;
+  const platform = await createPlatform(kind, size);
+  activePlatform = platform;
+  platform.resize(size, size);
+  const texture = drawSolidTexture(platform, 32, 32, '#00ff00');
+  const filter = options.createFilter ? await platform.createFilter(createRedFilterDefinition(kind)) : undefined;
+  if (filter) {
+    activeDisposables.push(filter);
+  }
+  const durations: number[] = [];
+
+  for (let frame = 0; frame < warmupFrames + frames; frame += 1) {
+    await nextAnimationFrame();
+    const startedAt = performance.now();
+    platform.renderer.beginFrame();
+    platform.renderer.clear({ r: 0, g: 0, b: 0, a: 1 });
+    draw(platform, texture, frame, size, iterations, filter);
+    platform.renderer.endFrame();
+    const duration = performance.now() - startedAt;
+    if (frame >= warmupFrames) {
+      durations.push(duration);
+    }
+  }
+
+  await nextPaint();
+  return {
+    name,
+    kind,
+    frames,
+    iterations,
+    meanMs: mean(durations),
+    p95Ms: percentile(durations, 0.95),
+    maxMs: Math.max(...durations),
+  };
+}
+
+function drawNinePatch(
+  platform: BrowserPlatformBase,
+  texture: Texture,
+  frames: Array<{ x: number; y: number; width: number; height: number }>,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  const dst = [
+    [x, y, 8, 8],
+    [x + 8, y, width - 16, 8],
+    [x + width - 8, y, 8, 8],
+    [x, y + 8, 8, height - 16],
+    [x + 8, y + 8, width - 16, height - 16],
+    [x + width - 8, y + 8, 8, height - 16],
+    [x, y + height - 8, 8, 8],
+    [x + 8, y + height - 8, width - 16, 8],
+    [x + width - 8, y + height - 8, 8, 8],
+  ];
+
+  for (let index = 0; index < frames.length; index += 1) {
+    const frame = frames[index]!;
+    const [dx, dy, dw, dh] = dst[index]!;
+    platform.renderer.drawSprite(texture, transformedState(dx, dy, dw / frame.width, dh / frame.height), frame);
+  }
+}
+
 function createRedFilterDefinition(kind: PlatformKind): ShaderFilterDefinition {
   if (kind === 'webgpu') {
     return {
@@ -185,6 +369,20 @@ function nextPaint(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 }
 
+function nextAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+function mean(values: number[]) {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function percentile(values: number[], percentileValue: number) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * percentileValue) - 1));
+  return sorted[index] ?? 0;
+}
+
 async function supports(kind: PlatformKind): Promise<boolean> {
   if (kind === 'canvas') {
     return true;
@@ -215,6 +413,21 @@ async function run(kind: PlatformKind, name: SmokeName): Promise<SmokeResult> {
   }
 }
 
+async function benchmark(kind: PlatformKind, name: BenchmarkName): Promise<BrowserBenchmarkResult> {
+  switch (name) {
+    case 'sprites':
+      return runSpriteBenchmark(kind);
+    case 'mask':
+      return runMaskBenchmark(kind);
+    case 'filter':
+      return runFilterBenchmark(kind);
+    case 'nine-patch':
+      return runNinePatchBenchmark(kind);
+    case 'mesh':
+      return runMeshBenchmark(kind);
+  }
+}
+
 function cleanup() {
   for (const disposable of activeDisposables) {
     disposable.dispose();
@@ -234,6 +447,7 @@ declare global {
     __midorableBrowserSmoke: {
       supports(kind: PlatformKind): Promise<boolean>;
       run(kind: PlatformKind, name: SmokeName): Promise<SmokeResult>;
+      benchmark(kind: PlatformKind, name: BenchmarkName): Promise<BrowserBenchmarkResult>;
       cleanup(): void;
     };
   }
@@ -242,5 +456,6 @@ declare global {
 window.__midorableBrowserSmoke = {
   supports,
   run,
+  benchmark,
   cleanup,
 };
