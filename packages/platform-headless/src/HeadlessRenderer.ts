@@ -1,117 +1,72 @@
-import {
-  Color,
-  DrawTexturedTrianglesParams,
-  FilterInstance,
-  Rectangle,
-  RenderState,
-  RenderableImage,
-  Renderer,
-  RendererMeshFeature,
-} from '@rutan/midorable/platform';
-import { HeadlessDrawCommand } from './types';
+import { RenderCommand, RenderFrame, Renderer } from '@rutan/midorable/platform';
 
-export class HeadlessRenderer implements Renderer, RendererMeshFeature {
+export class HeadlessRenderer implements Renderer {
   private _mode: 'noop' | 'record';
-  private _commands: HeadlessDrawCommand[] = [];
+  private _lastFrame: RenderFrame | null = null;
   private _width = 0;
   private _height = 0;
-  private _frameActive = false;
 
   constructor(mode: 'noop' | 'record' = 'noop') {
     this._mode = mode;
   }
 
-  get commands(): readonly HeadlessDrawCommand[] {
-    return this._commands;
+  get lastFrame(): RenderFrame | null {
+    return this._lastFrame;
+  }
+
+  get commands(): readonly RenderCommand[] {
+    return this._lastFrame?.commands ?? [];
   }
 
   get size() {
     return { width: this._width, height: this._height };
   }
 
-  beginFrame(): void {
-    this._frameActive = true;
-  }
-
-  endFrame(): void {
-    this._frameActive = false;
-  }
-
-  clear(color: Color = { r: 0, g: 0, b: 0, a: 1 }): void {
-    if (!this.shouldRecord()) {
+  submitFrame(frame: RenderFrame): void {
+    if (this._mode !== 'record') {
       return;
     }
-    this._commands.push({ type: 'clear', color: { r: color.r, g: color.g, b: color.b, a: color.a } });
-  }
-
-  drawSprite(image: RenderableImage, state: RenderState, frame?: Rectangle | null): void {
-    if (!this.shouldRecord()) {
-      return;
-    }
-    if (!frame) {
-      this._commands.push({ type: 'drawSprite', image, state });
-      return;
-    }
-    this._commands.push({
-      type: 'drawSpriteFrame',
-      image,
-      state,
-      frame: { x: frame.x, y: frame.y, width: frame.width, height: frame.height },
-    });
-  }
-
-  drawTexturedTriangles(params: DrawTexturedTrianglesParams): void {
-    if (!this.shouldRecord()) {
-      return;
-    }
-    this._commands.push({
-      type: 'drawTexturedTriangles',
-      image: params.image,
-      state: params.state,
-      positions: Array.from(params.positions),
-      uvs: Array.from(params.uvs),
-      indices: Array.from(params.indices),
-      tint: params.tint ? { ...params.tint } : undefined,
-    });
-  }
-
-  pushFilters(_filters: readonly FilterInstance[], _state: RenderState): boolean {
-    return false;
-  }
-
-  popFilters(): void {}
-
-  pushMask(): void {
-    if (!this.shouldRecord()) {
-      return;
-    }
-    this._commands.push({ type: 'pushMask' });
-  }
-
-  activateMask(): void {
-    if (!this.shouldRecord()) {
-      return;
-    }
-    this._commands.push({ type: 'activateMask' });
-  }
-
-  popMask(): void {
-    if (!this.shouldRecord()) {
-      return;
-    }
-    this._commands.push({ type: 'popMask' });
+    this._lastFrame = cloneFrame(frame);
   }
 
   resize(width: number, height: number): void {
     this._width = width;
     this._height = height;
   }
+}
 
-  resetCommands(): void {
-    this._commands = [];
-  }
+function cloneFrame(frame: RenderFrame): RenderFrame {
+  return {
+    clearColor: { ...frame.clearColor },
+    commands: frame.commands.map((command): RenderCommand => {
+      switch (command.type) {
+        case 'spriteBatch':
+          return { ...command, instanceData: command.instanceData.slice() };
+        case 'drawTexturedTriangles':
+          return {
+            ...command,
+            state: cloneState(command.state),
+            positions: command.positions.slice(),
+            uvs: command.uvs.slice(),
+            indices: command.indices.slice(),
+            tint: command.tint ? { ...command.tint } : undefined,
+          };
+        case 'pushFilters':
+          return {
+            ...command,
+            state: cloneState(command.state),
+            filters: command.filters.map((filter) => ({
+              resource: filter.resource,
+              uniformData: filter.uniformData.slice(),
+            })),
+          };
+        default:
+          return command;
+      }
+    }),
+  };
+}
 
-  private shouldRecord(): boolean {
-    return this._mode === 'record' && this._frameActive;
-  }
+function cloneState<T extends { transform: object; colorTone: object }>(state: T): T {
+  return { ...state, transform: { ...state.transform }, colorTone: { ...state.colorTone } };
 }

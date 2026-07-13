@@ -5,15 +5,14 @@ import {
   AudioAsset,
   AudioBackend,
   DisplayObject,
+  FilterInstance,
   ImageAsset,
   InputBackend,
   NinePatch,
   ParticleEmitter,
   ParticleEmitterConfig,
   Platform,
-  RenderableImage,
   Renderer,
-  RenderState,
   ResolvedAsset,
   Sprite,
   Texture,
@@ -291,13 +290,7 @@ function createParticleScene() {
 }
 
 function createNoopFilter() {
-  return {
-    id: 'noop',
-    definition: { language: 'noop', fragment: '' },
-    enabled: true,
-    setUniform() {},
-    dispose() {},
-  };
+  return new FilterInstance({ language: 'noop', fragment: '' }, { dispose() {} });
 }
 
 function createBenchApp() {
@@ -354,9 +347,6 @@ function createNoopPlatform(): Platform {
       createTexture(width: number, height: number) {
         return createTexture(width, height);
       },
-      async createFilter() {
-        throw new Error('Filters are not supported by the benchmark platform');
-      },
     },
     audio,
     input,
@@ -389,28 +379,17 @@ function createNoopRenderer(): Renderer {
   let drawCount = 0;
 
   return {
-    beginFrame() {
+    submitFrame(frame) {
       drawCount = 0;
-    },
-    endFrame() {
+      for (const command of frame.commands) {
+        if (command.type === 'spriteBatch') {
+          drawCount += command.instanceCount;
+        }
+      }
       if (drawCount < 0) {
         throw new Error('unreachable');
       }
     },
-    clear() {},
-    drawSprite(_image: RenderableImage, state: RenderState) {
-      drawCount += 1;
-      if (state.alpha < 0) {
-        throw new Error('unreachable');
-      }
-    },
-    pushFilters() {
-      return true;
-    },
-    popFilters() {},
-    pushMask() {},
-    activateMask() {},
-    popMask() {},
     resize() {},
   };
 }

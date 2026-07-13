@@ -1,29 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import { DisplayObject, DisplayObjectProps } from '../../../src/engine/displays/DisplayObject';
 import { Sprite } from '../../../src/engine/displays/Sprite';
-import { FilterInstance, RenderableImage, Renderer, RenderState } from '../../../src/platform/renderer';
+import {
+  DrawTexturedTrianglesParams,
+  FilterInstance,
+  RenderableImage,
+  RenderCommandEncoder,
+  RenderState,
+} from '../../../src/platform/renderer';
 import { Rectangle } from '../../../src/platform/types';
 import { createMockTexture } from '../../helpers/createMockPlatform';
 import { createTestContext } from '../../helpers/createTestContext';
 
 type RecordedCommand = { type: 'drawSprite' | 'pushMask' | 'activateMask' | 'popMask' };
 
-class RecordingRenderer implements Renderer {
+class RecordingRenderer implements RenderCommandEncoder {
   readonly commands: RecordedCommand[] = [];
-
-  beginFrame(): void {}
-
-  endFrame(): void {}
-
-  clear(): void {}
 
   drawSprite(_image: RenderableImage, _state: RenderState, _frame?: Rectangle | null): void {
     this.commands.push({ type: 'drawSprite' });
   }
 
-  pushFilters(_filters: readonly FilterInstance[], _state: RenderState): boolean {
-    return false;
-  }
+  drawTexturedTriangles(_params: DrawTexturedTrianglesParams): void {}
+
+  pushFilters(_filters: readonly FilterInstance[], _state: RenderState): void {}
 
   popFilters(): void {}
 
@@ -38,8 +38,6 @@ class RecordingRenderer implements Renderer {
   popMask(): void {
     this.commands.push({ type: 'popMask' });
   }
-
-  resize(_width: number, _height: number): void {}
 }
 
 class Box extends DisplayObject {
@@ -213,7 +211,6 @@ describe('DisplayObject#hitTestPoint', () => {
   it('does not render mask objects as normal display objects', () => {
     const context = createTestContext();
     const renderer = new RecordingRenderer();
-    renderer.beginFrame();
     const mask = new Sprite({
       context,
       image: createMockTexture(20, 20),
@@ -227,7 +224,6 @@ describe('DisplayObject#hitTestPoint', () => {
     box.render(renderer);
 
     expect(renderer.commands.map(({ type }) => type)).toEqual(['pushMask', 'activateMask', 'drawSprite', 'popMask']);
-    renderer.endFrame();
   });
 
   it('rejects cyclic mask assignments', () => {

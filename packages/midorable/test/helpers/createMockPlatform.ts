@@ -81,15 +81,7 @@ export function createEmptyInputState(): InputState {
 
 function createMockRenderer() {
   return {
-    beginFrame: vi.fn(),
-    endFrame: vi.fn(),
-    clear: vi.fn(),
-    drawSprite: vi.fn(),
-    pushFilters: vi.fn(() => false),
-    popFilters: vi.fn(),
-    pushMask: vi.fn(),
-    activateMask: vi.fn(),
-    popMask: vi.fn(),
+    submitFrame: vi.fn(),
     resize: vi.fn(),
   } satisfies Renderer;
 }
@@ -204,9 +196,6 @@ export function createMockPlatform() {
     renderer,
     capabilities: {},
     createTexture: vi.fn((width: number, height: number) => createMockTexture(width, height)),
-    createFilter: vi.fn(async () => {
-      throw new Error('Shader filters are not supported on mock platform');
-    }),
   };
   const assets = {
     load: load as any,

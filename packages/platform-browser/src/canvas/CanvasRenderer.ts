@@ -1,4 +1,13 @@
-import { Color, FilterInstance, Rectangle, RenderableImage, Renderer, RenderState } from '@rutan/midorable/platform';
+import {
+  Color,
+  Rectangle,
+  RenderFrame,
+  RenderableImage,
+  Renderer,
+  RenderState,
+  SPRITE_INSTANCE_STRIDE,
+  SpriteBatchCommand,
+} from '@rutan/midorable/platform';
 import { clamp01, clamp255 } from '../internal/utilities';
 import { colorToCss } from '../utils';
 
@@ -18,6 +27,32 @@ export class CanvasRenderer implements Renderer {
 
   constructor(canvas: HTMLCanvasElement) {
     this._canvas = canvas;
+  }
+
+  submitFrame(frame: RenderFrame): void {
+    this.beginFrame();
+    this.clear(frame.clearColor);
+    for (const command of frame.commands) {
+      switch (command.type) {
+        case 'spriteBatch':
+          this.drawSpriteBatch(command);
+          break;
+        case 'pushMask':
+          this.pushMask();
+          break;
+        case 'activateMask':
+          this.activateMask();
+          break;
+        case 'popMask':
+          this.popMask();
+          break;
+        case 'pushFilters':
+        case 'popFilters':
+        case 'drawTexturedTriangles':
+          throw new Error(`${command.type} is not supported by CanvasRenderer`);
+      }
+    }
+    this.endFrame();
   }
 
   beginFrame() {
@@ -90,12 +125,6 @@ export class CanvasRenderer implements Renderer {
 
     this._ctx.restore();
   }
-
-  pushFilters(_filters: readonly FilterInstance[], _state: RenderState): boolean {
-    return false;
-  }
-
-  popFilters() {}
 
   pushMask() {
     if (!this._ctx || !this._baseCtx) {
@@ -173,6 +202,41 @@ export class CanvasRenderer implements Renderer {
   resize(width: number, height: number) {
     this._canvas.width = width;
     this._canvas.height = height;
+  }
+
+  private drawSpriteBatch(command: SpriteBatchCommand): void {
+    const data = command.instanceData;
+    for (let index = 0; index < command.instanceCount; index += 1) {
+      const offset = index * SPRITE_INSTANCE_STRIDE;
+      this.drawSprite(
+        command.image,
+        {
+          transform: {
+            a: data[offset]!,
+            b: data[offset + 1]!,
+            c: data[offset + 2]!,
+            d: data[offset + 3]!,
+            tx: data[offset + 4]!,
+            ty: data[offset + 5]!,
+          },
+          alpha: data[offset + 12]!,
+          blendMode: command.blendMode,
+          colorTone: {
+            r: data[offset + 13]! * 255,
+            g: data[offset + 14]! * 255,
+            b: data[offset + 15]! * 255,
+            a: data[offset + 16]!,
+          },
+          smooth: command.smooth,
+        },
+        {
+          x: data[offset + 8]! * command.image.width,
+          y: data[offset + 9]! * command.image.height,
+          width: data[offset + 6]!,
+          height: data[offset + 7]!,
+        },
+      );
+    }
   }
 
   private ensureToneSurface(width: number, height: number) {

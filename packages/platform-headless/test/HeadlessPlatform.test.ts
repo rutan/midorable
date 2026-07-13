@@ -1,4 +1,4 @@
-import { App } from '@rutan/midorable';
+import { App, DefaultRenderCommandEncoder } from '@rutan/midorable';
 import type { BinaryAsset, ImageAsset, RenderState, TextAsset } from '@rutan/midorable';
 import { binaryAsset, textAsset } from '@rutan/midorable';
 import { describe, expect, it, vi } from 'vitest';
@@ -38,19 +38,16 @@ describe('HeadlessPlatform', () => {
   it('records renderer commands in record mode', async () => {
     const platform = await createHeadlessPlatform({ rendererMode: 'record' });
     platform.host.resize(320, 240);
-    platform.graphics.renderer.beginFrame();
-    platform.graphics.renderer.clear({ r: 1, g: 2, b: 3, a: 1 });
-    platform.graphics.renderer.endFrame();
+    platform.graphics.renderer.submitFrame({ clearColor: { r: 1, g: 2, b: 3, a: 1 }, commands: [] });
 
     const renderer = platform.graphics.renderer as HeadlessRenderer;
     expect(renderer.size).toEqual({ width: 320, height: 240 });
-    expect(renderer.commands.length).toBe(1);
-    expect(renderer.commands[0]?.type).toBe('clear');
+    expect(renderer.commands.length).toBe(0);
+    expect(renderer.lastFrame?.clearColor).toEqual({ r: 1, g: 2, b: 3, a: 1 });
   });
 
-  it('provides renderer.mesh feature in record mode', async () => {
+  it('records mesh commands in record mode', async () => {
     const platform = await createHeadlessPlatform({ rendererMode: 'record' });
-    const mesh = platform.getFeature('renderer.mesh');
     const image = {
       id: 'image://mesh',
       type: 'image',
@@ -66,9 +63,9 @@ describe('HeadlessPlatform', () => {
       smooth: true,
     } satisfies RenderState;
 
-    expect(mesh).toBeDefined();
-    platform.graphics.renderer.beginFrame();
-    mesh!.drawTexturedTriangles({
+    const encoder = new DefaultRenderCommandEncoder({ meshSupported: true });
+    encoder.reset({ r: 0, g: 0, b: 0, a: 1 });
+    encoder.drawTexturedTriangles({
       image,
       state,
       positions: [0, 0, 16, 0, 0, 16],
@@ -76,16 +73,19 @@ describe('HeadlessPlatform', () => {
       indices: [0, 1, 2],
       tint: { r: 255, g: 128, b: 64, a: 0.5 },
     });
-    platform.graphics.renderer.endFrame();
+    platform.graphics.renderer.submitFrame(encoder.finish());
 
     const command = platform.graphics.renderer.commands[0];
     expect(command?.type).toBe('drawTexturedTriangles');
+    if (command?.type !== 'drawTexturedTriangles') {
+      throw new Error('Expected drawTexturedTriangles command');
+    }
     expect(command).toMatchObject({
-      positions: [0, 0, 16, 0, 0, 16],
-      uvs: [0, 0, 1, 0, 0, 1],
-      indices: [0, 1, 2],
       tint: { r: 255, g: 128, b: 64, a: 0.5 },
     });
+    expect(Array.from(command!.positions)).toEqual([0, 0, 16, 0, 0, 16]);
+    expect(Array.from(command!.uvs)).toEqual([0, 0, 1, 0, 0, 1]);
+    expect(Array.from(command!.indices)).toEqual([0, 1, 2]);
   });
 
   it('loads and unloads text and binary with cache', async () => {

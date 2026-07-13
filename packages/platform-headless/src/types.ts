@@ -4,33 +4,8 @@ import {
   ImageAsset,
   MediaQuery,
   MediaSupportLevel,
-  RenderState,
-  RenderableImage,
-  DrawTexturedTrianglesParams,
   TextAsset,
 } from '@rutan/midorable/platform';
-
-export type HeadlessDrawCommand =
-  | { type: 'clear'; color: { r: number; g: number; b: number; a: number } }
-  | { type: 'drawSprite'; image: RenderableImage; state: RenderState }
-  | {
-      type: 'drawSpriteFrame';
-      image: RenderableImage;
-      state: RenderState;
-      frame: { x: number; y: number; width: number; height: number };
-    }
-  | {
-      type: 'drawTexturedTriangles';
-      image: RenderableImage;
-      state: RenderState;
-      positions: readonly number[];
-      uvs: readonly number[];
-      indices: readonly number[];
-      tint?: DrawTexturedTrianglesParams['tint'];
-    }
-  | { type: 'pushMask' }
-  | { type: 'activateMask' }
-  | { type: 'popMask' };
 
 export interface HeadlessResourceConfig {
   fetch?: (url: string, options?: { signal?: AbortSignal }) => Promise<Response>;

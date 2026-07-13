@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ParticleEmitter, ParticleEmitterConfig } from '../../../src/engine/displays/ParticleEmitter';
-import { Renderer } from '../../../src/platform/renderer';
+import { RenderCommandEncoder } from '../../../src/platform/renderer';
 import { createMockTexture } from '../../helpers/createMockPlatform';
 import { createTestContext } from '../../helpers/createTestContext';
 
@@ -11,10 +11,7 @@ function createRendererSpy() {
     colorTone: { r: number; g: number; b: number; a: number };
     smooth: boolean;
   }> = [];
-  const renderer: Renderer = {
-    beginFrame() {},
-    endFrame() {},
-    clear() {},
+  const renderer: RenderCommandEncoder = {
     drawSprite(_image, state) {
       drawSpriteCalls.push({
         alpha: state.alpha,
@@ -35,14 +32,12 @@ function createRendererSpy() {
         smooth: state.smooth,
       });
     },
-    pushFilters() {
-      return false;
-    },
+    drawTexturedTriangles() {},
+    pushFilters() {},
     popFilters() {},
     pushMask() {},
     activateMask() {},
     popMask() {},
-    resize() {},
   };
   return { renderer, drawSpriteCalls };
 }

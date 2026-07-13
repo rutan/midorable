@@ -1,6 +1,6 @@
 import {
   Asset,
-  FilterInstance,
+  FilterResource,
   GraphicsCapabilities,
   Renderer,
   ShaderFilterDefinition,
@@ -16,7 +16,9 @@ export class WebGlPlatform extends BrowserPlatformBase {
   private static readonly GRAPHICS_CAPABILITIES: GraphicsCapabilities = {
     filters: {
       shaderLanguages: ['glsl-es-300'],
+      maxUniformVectors: WebGlRenderer.FILTER_UNIFORM_VEC4_COUNT,
     },
+    mesh: {},
   };
   private _gl: WebGL2RenderingContext | null = null;
   private _webglRenderer: WebGlRenderer | null = null;
@@ -42,7 +44,6 @@ export class WebGlPlatform extends BrowserPlatformBase {
 
     this._gl = gl;
     this._webglRenderer = new WebGlRenderer(canvas, gl);
-    this.setFeature('renderer.mesh', this._webglRenderer);
     const handleContextLost = (event: Event) => {
       event.preventDefault();
       this._webglRenderer?.onContextLost();
@@ -87,11 +88,11 @@ export class WebGlPlatform extends BrowserPlatformBase {
     }
   }
 
-  protected async createFilter(definition: ShaderFilterDefinition): Promise<FilterInstance> {
+  protected async createFilterResource(definition: ShaderFilterDefinition): Promise<FilterResource> {
     const renderer = this._webglRenderer;
     if (!renderer) {
       throw new Error('WebGL renderer is not initialized');
     }
-    return renderer.createFilter(definition);
+    return renderer.createFilterResource(definition);
   }
 }

@@ -1,6 +1,6 @@
 import {
   Asset,
-  FilterInstance,
+  FilterResource,
   GraphicsCapabilities,
   ImageAsset,
   Renderer,
@@ -17,6 +17,7 @@ export class WebGpuPlatform extends BrowserPlatformBase {
   private static readonly GRAPHICS_CAPABILITIES: GraphicsCapabilities = {
     filters: {
       shaderLanguages: ['wgsl'],
+      maxUniformVectors: WebGpuRenderer.FILTER_UNIFORM_VEC4_COUNT,
     },
   };
   private _context: GPUCanvasContext | null = null;
@@ -101,12 +102,12 @@ export class WebGpuPlatform extends BrowserPlatformBase {
     this._webgpuRenderer?.releaseExternalTexture(image.source);
   }
 
-  protected async createFilter(definition: ShaderFilterDefinition): Promise<FilterInstance> {
+  protected async createFilterResource(definition: ShaderFilterDefinition): Promise<FilterResource> {
     const renderer = this._webgpuRenderer;
     if (!renderer) {
       throw new Error('WebGPU renderer is not initialized');
     }
-    return renderer.createFilter(definition);
+    return renderer.createFilterResource(definition);
   }
 
   private configureContext(context: GPUCanvasContext, device: GPUDevice, format: GPUTextureFormat) {

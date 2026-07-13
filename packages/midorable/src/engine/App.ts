@@ -5,6 +5,7 @@ import type { AppContext } from './AppContext';
 import { DisplayObject } from './displays';
 import { InputController } from './input';
 import { Loader } from './Loader';
+import { DefaultRenderCommandEncoder } from './rendering';
 
 const MAX_STEP_SNAP_TOLERANCE_MS = 1;
 const STEP_SNAP_TOLERANCE_RATIO = 0.06;
@@ -77,6 +78,7 @@ export class App {
   private _statsSampleFrameCount = 0;
   private _statsSampleLastAt = 0;
   private _backgroundColor: Color;
+  private _renderCommandEncoder: DefaultRenderCommandEncoder;
 
   private _root: DisplayObject;
   private _loaders: Set<Loader> = new Set();
@@ -88,6 +90,9 @@ export class App {
     this._platform = config.platform;
     this._width = config.width ?? 800;
     this._height = config.height ?? 600;
+    this._renderCommandEncoder = new DefaultRenderCommandEncoder({
+      meshSupported: config.platform.graphics.capabilities.mesh !== undefined,
+    });
     this._fps = config.fps ?? 60;
     this._stats = {
       actualFps: 0,
@@ -223,11 +228,17 @@ export class App {
    * シェーダーフィルターを作成する
    * @param definition - シェーダーフィルターの定義
    */
-  createFilter(definition: ShaderFilterDefinition): Promise<FilterInstance> {
-    return (
-      this._platform.graphics.createFilter?.(definition) ??
-      Promise.reject(new Error('createFilter is not supported on this platform'))
-    );
+  async createFilter(definition: ShaderFilterDefinition): Promise<FilterInstance> {
+    const graphics = this._platform.graphics;
+    const capabilities = graphics.capabilities.filters;
+    if (!capabilities || !graphics.createFilterResource) {
+      throw new Error('createFilter is not supported on this platform');
+    }
+    const uniformCount = Object.keys(definition.uniforms ?? {}).length;
+    if (uniformCount > capabilities.maxUniformVectors) {
+      throw new Error(`Too many uniforms. Max is ${capabilities.maxUniformVectors}.`);
+    }
+    return new FilterInstance(definition, await graphics.createFilterResource(definition));
   }
 
   /**
@@ -353,10 +364,9 @@ export class App {
    */
   render() {
     const renderer = this._platform.graphics.renderer;
-    renderer.beginFrame();
-    renderer.clear(this._backgroundColor);
-    this._root.render(renderer);
-    renderer.endFrame();
+    this._renderCommandEncoder.reset(this._backgroundColor);
+    this._root.render(this._renderCommandEncoder);
+    renderer.submitFrame(this._renderCommandEncoder.finish());
   }
 
   /**

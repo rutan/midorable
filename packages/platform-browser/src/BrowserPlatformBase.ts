@@ -2,7 +2,7 @@ import {
   Asset,
   AssetsBackend,
   AssetSpec,
-  FilterInstance,
+  FilterResource,
   GraphicsCapabilities,
   GraphicsBackend,
   HostBackend,
@@ -67,7 +67,7 @@ export abstract class BrowserPlatformBase implements Platform {
         return getCapabilities();
       },
       createTexture: (width, height) => this.createTextureCore(width, height),
-      createFilter: (definition) => this.createFilter(definition),
+      createFilterResource: (definition) => this.createFilterResource(definition),
     };
     this.assets = {
       load: (spec, options) => this.loadAsset(spec, options),
@@ -243,7 +243,7 @@ export abstract class BrowserPlatformBase implements Platform {
     return this._features[key] as PlatformFeatureRegistry[K] | undefined;
   }
 
-  protected async createFilter(_definition: ShaderFilterDefinition): Promise<FilterInstance> {
+  protected async createFilterResource(_definition: ShaderFilterDefinition): Promise<FilterResource> {
     throw new Error('Shader filters are not supported on this platform');
   }
 
