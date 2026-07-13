@@ -62,7 +62,7 @@ export class HeadlessPlatform implements Platform {
     };
     this.graphics = {
       renderer,
-      filterCapabilities: null,
+      capabilities: {},
       createTexture: (width, height) =>
         new HeadlessTexture(width, height, { recording: this._rendererMode === 'record' }),
       createFilter: async (_definition) => {

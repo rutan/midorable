@@ -4,9 +4,9 @@ export interface GraphicsBackend {
   readonly renderer: Renderer;
 
   /**
-   * シェーダーフィルター機能のサポート状況と能力。
+   * 画面描画機構のサポート状況と能力。
    */
-  readonly filterCapabilities?: RenderFilterCapabilities | null;
+  readonly capabilities: GraphicsCapabilities;
 
   /**
    * テクスチャを作成する
@@ -20,7 +20,7 @@ export interface GraphicsBackend {
    *
    * @remarks
    * 定義オブジェクトの内容や、サポートされるシェーダー言語の種類はプラットフォームによって異なる。
-   * そのためゲーム側は事前に filterCapabilities を確認し、対応したシェーダー言語を使用してフィルターを作成する必要がある。
+   * そのためゲーム側は事前に `capabilities.filters` を確認し、対応したシェーダー言語を使用してフィルターを作成する必要がある。
    *
    * @param definition - シェーダーフィルターの定義
    * @returns 作成されたフィルターインスタンスを返すPromise。定義の内容がプラットフォームでサポートされない場合や、作成に失敗した場合はPromiseがrejectされる。
@@ -28,9 +28,17 @@ export interface GraphicsBackend {
   createFilter?(definition: ShaderFilterDefinition): Promise<FilterInstance>;
 }
 
-export interface RenderFilterCapabilities {
+export interface GraphicsCapabilities {
+  /**
+   * シェーダーフィルター機能のサポート状況と能力。
+   * 未対応の場合は undefined。
+   */
+  readonly filters?: GraphicsFilterCapabilities;
+}
+
+export interface GraphicsFilterCapabilities {
   /**
    * Platform が受け付けるシェーダー言語識別子一覧。
    */
-  shaderLanguages: readonly ShaderFilterDefinition['language'][];
+  readonly shaderLanguages: readonly ShaderFilterDefinition['language'][];
 }

@@ -202,8 +202,8 @@ export function createMockPlatform() {
   };
   const graphics = {
     renderer,
+    capabilities: {},
     createTexture: vi.fn((width: number, height: number) => createMockTexture(width, height)),
-    filterCapabilities: null,
     createFilter: vi.fn(async () => {
       throw new Error('Shader filters are not supported on mock platform');
     }),

@@ -1,4 +1,4 @@
-import { Platform, PlatformFeatureRegistry, RenderFilterCapabilities } from '../platform';
+import { GraphicsCapabilities, Platform, PlatformFeatureRegistry } from '../platform';
 import { FilterInstance, ShaderFilterDefinition, Texture } from '../platform';
 import { Color, CursorName, MediaQuery, MediaSupportLevel } from '../platform';
 import type { AppContext } from './AppContext';
@@ -213,14 +213,10 @@ export class App {
   }
 
   /**
-   * 対応するシェーダー言語の取得
-   *
-   * @remarks
-   * プラットフォームが対応しているシェーダー言語の情報を取得する。
-   * シェーダーを利用する場合は、この情報をもとに適切な言語でシェーダーフィルターを作成する必要がある。
+   * 画面描画機構のサポート状況と能力
    */
-  get filterCapabilities(): RenderFilterCapabilities | null {
-    return this._platform.graphics.filterCapabilities || null;
+  get graphicsCapabilities(): GraphicsCapabilities {
+    return this._platform.graphics.capabilities;
   }
 
   /**

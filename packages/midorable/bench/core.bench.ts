@@ -350,7 +350,7 @@ function createNoopPlatform(): Platform {
     },
     graphics: {
       renderer,
-      filterCapabilities: null,
+      capabilities: {},
       createTexture(width: number, height: number) {
         return createTexture(width, height);
       },

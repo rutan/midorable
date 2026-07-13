@@ -57,6 +57,20 @@ describe('App lifecycle', () => {
     expect(renderer.endFrame).toHaveBeenCalledTimes(1);
   });
 
+  it('exposes graphics capabilities from the graphics backend', () => {
+    const { platform, graphics } = createMockPlatform();
+    graphics.capabilities = {
+      filters: {
+        shaderLanguages: ['test-shader'],
+      },
+    };
+    const app = new App({ platform });
+
+    expect(app.graphicsCapabilities).toEqual({
+      filters: { shaderLanguages: ['test-shader'] },
+    });
+  });
+
   it('tracks runtime stats from the main loop', async () => {
     const mock = createMockPlatform();
     const app = new App({ platform: mock.platform, fps: 60 });

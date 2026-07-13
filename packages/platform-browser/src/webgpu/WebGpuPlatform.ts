@@ -1,8 +1,8 @@
 import {
   Asset,
   FilterInstance,
+  GraphicsCapabilities,
   ImageAsset,
-  RenderFilterCapabilities,
   Renderer,
   ShaderFilterDefinition,
   Texture,
@@ -14,8 +14,10 @@ import { WebGpuTexture } from './WebGpuTexture';
 export interface WebGpuPlatformConfig extends BrowserPlatformConfig {}
 
 export class WebGpuPlatform extends BrowserPlatformBase {
-  private static readonly FILTER_CAPABILITIES: RenderFilterCapabilities = {
-    shaderLanguages: ['wgsl'],
+  private static readonly GRAPHICS_CAPABILITIES: GraphicsCapabilities = {
+    filters: {
+      shaderLanguages: ['wgsl'],
+    },
   };
   private _context: GPUCanvasContext | null = null;
   private _device: GPUDevice | null = null;
@@ -34,8 +36,8 @@ export class WebGpuPlatform extends BrowserPlatformBase {
     return this._format;
   }
 
-  protected get filterCapabilities(): RenderFilterCapabilities | null {
-    return WebGpuPlatform.FILTER_CAPABILITIES;
+  protected get capabilities(): GraphicsCapabilities {
+    return WebGpuPlatform.GRAPHICS_CAPABILITIES;
   }
 
   protected async createRenderer(canvas: HTMLCanvasElement): Promise<Renderer> {

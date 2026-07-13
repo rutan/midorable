@@ -1,7 +1,7 @@
 import {
   Asset,
   FilterInstance,
-  RenderFilterCapabilities,
+  GraphicsCapabilities,
   Renderer,
   ShaderFilterDefinition,
   Texture,
@@ -13,8 +13,10 @@ import { WebGlRenderer } from './WebGlRenderer';
 export interface WebGlPlatformConfig extends BrowserPlatformConfig {}
 
 export class WebGlPlatform extends BrowserPlatformBase {
-  private static readonly FILTER_CAPABILITIES: RenderFilterCapabilities = {
-    shaderLanguages: ['glsl-es-300'],
+  private static readonly GRAPHICS_CAPABILITIES: GraphicsCapabilities = {
+    filters: {
+      shaderLanguages: ['glsl-es-300'],
+    },
   };
   private _gl: WebGL2RenderingContext | null = null;
   private _webglRenderer: WebGlRenderer | null = null;
@@ -24,8 +26,8 @@ export class WebGlPlatform extends BrowserPlatformBase {
     return this._gl;
   }
 
-  protected get filterCapabilities(): RenderFilterCapabilities | null {
-    return WebGlPlatform.FILTER_CAPABILITIES;
+  protected get capabilities(): GraphicsCapabilities {
+    return WebGlPlatform.GRAPHICS_CAPABILITIES;
   }
 
   protected async createRenderer(canvas: HTMLCanvasElement): Promise<Renderer> {

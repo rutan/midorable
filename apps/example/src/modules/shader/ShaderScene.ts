@@ -85,7 +85,7 @@ export class ShaderSceneView extends DisplayObject {
   }
 
   private _generateFilter(): FilterGenerationResult {
-    const filterCapabilities = this.context.app.filterCapabilities;
+    const filterCapabilities = this.context.app.graphicsCapabilities.filters;
     if (!filterCapabilities) {
       return {
         result: false,

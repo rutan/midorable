@@ -3,12 +3,12 @@ import {
   AssetsBackend,
   AssetSpec,
   FilterInstance,
+  GraphicsCapabilities,
   GraphicsBackend,
   HostBackend,
   LoadAssetOptions,
   Platform,
   PlatformFeatureRegistry,
-  RenderFilterCapabilities,
   ResolvedAsset,
   Renderer,
   ShaderFilterDefinition,
@@ -27,6 +27,8 @@ export interface BrowserPlatformConfig {
 }
 
 export abstract class BrowserPlatformBase implements Platform {
+  private static readonly EMPTY_GRAPHICS_CAPABILITIES: GraphicsCapabilities = {};
+
   readonly host: HostBackend;
   readonly graphics: GraphicsBackend;
   readonly assets: AssetsBackend;
@@ -48,7 +50,7 @@ export abstract class BrowserPlatformBase implements Platform {
     this._element = config.element;
 
     const getRenderer = () => this.renderer;
-    const getFilterCapabilities = () => this.filterCapabilities;
+    const getCapabilities = () => this.capabilities;
     this.host = {
       startLoop: (callback) => this.startLoop(callback),
       stopLoop: () => this.stopLoop(),
@@ -61,8 +63,8 @@ export abstract class BrowserPlatformBase implements Platform {
       get renderer() {
         return getRenderer();
       },
-      get filterCapabilities() {
-        return getFilterCapabilities();
+      get capabilities() {
+        return getCapabilities();
       },
       createTexture: (width, height) => this.createTextureCore(width, height),
       createFilter: (definition) => this.createFilter(definition),
@@ -116,8 +118,8 @@ export abstract class BrowserPlatformBase implements Platform {
     return this._logicalSize;
   }
 
-  protected get filterCapabilities(): RenderFilterCapabilities | null {
-    return null;
+  protected get capabilities(): GraphicsCapabilities {
+    return BrowserPlatformBase.EMPTY_GRAPHICS_CAPABILITIES;
   }
 
   async init() {
