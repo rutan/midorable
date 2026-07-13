@@ -15,7 +15,7 @@ import { InputBackend } from './input';
  * `@rutan/midorable-platform-headless` の各種プラットフォーム実装を参照。
  * 独自 Platform 実装者は、`host`, `graphics`, `audio`, `input`, `assets` を提供する。
  *
- * Engine は `App` のライフサイクル内でこれらを呼び出すため、`stopLoop()` や `unloadAsset()` などの
+ * Engine は `App` のライフサイクル内でこれらを呼び出すため、`host.stopLoop()` や `assets.unload()` などの
  * 後始末系メソッドは、可能な限り冪等に実装することが望ましい。
  * 必須機能を実装できない環境では、呼び出されても安全な no-op 実装を提供するか、
  * その機能のメソッド内で明示的に reject / throw する。任意機能は `getFeature()` で undefined を返す。
