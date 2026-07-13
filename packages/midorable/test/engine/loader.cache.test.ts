@@ -9,14 +9,14 @@ describe('Loader cache', () => {
     const { platform } = createMockPlatform();
     const asset = createImageAsset('hero');
     const deferred = Promise.resolve(asset);
-    platform.loadAsset = vi.fn(() => deferred);
+    platform.assets.load = vi.fn(() => deferred);
     const loader = new Loader(platform);
 
     const p1 = loader.load(imageAsset('/hero.png'));
     const p2 = loader.load(imageAsset('/hero.png'));
     const [r1, r2] = await Promise.all([p1, p2]);
 
-    expect(platform.loadAsset).toHaveBeenCalledTimes(1);
+    expect(platform.assets.load).toHaveBeenCalledTimes(1);
     expect(r1).toBe(asset);
     expect(r2).toBe(asset);
   });
@@ -24,13 +24,13 @@ describe('Loader cache', () => {
   it('returns cached asset after first load', async () => {
     const { platform } = createMockPlatform();
     const asset = createImageAsset('hero');
-    platform.loadAsset = vi.fn(async () => asset);
+    platform.assets.load = vi.fn(async () => asset);
     const loader = new Loader(platform);
 
     const first = await loader.load(imageAsset('/hero.png'));
     const second = await loader.load(imageAsset('/hero.png'));
 
-    expect(platform.loadAsset).toHaveBeenCalledTimes(1);
+    expect(platform.assets.load).toHaveBeenCalledTimes(1);
     expect(first).toBe(asset);
     expect(second).toBe(asset);
   });
@@ -38,20 +38,20 @@ describe('Loader cache', () => {
   it('clears in-flight state after failure and allows retry', async () => {
     const { platform } = createMockPlatform();
     const asset = createImageAsset('hero');
-    platform.loadAsset = vi.fn().mockRejectedValueOnce(new Error('network error')).mockResolvedValueOnce(asset);
+    platform.assets.load = vi.fn().mockRejectedValueOnce(new Error('network error')).mockResolvedValueOnce(asset);
     const loader = new Loader(platform);
 
     await expect(loader.load(imageAsset('/hero.png'))).rejects.toThrow('network error');
     const retried = await loader.load(imageAsset('/hero.png'));
 
-    expect(platform.loadAsset).toHaveBeenCalledTimes(2);
+    expect(platform.assets.load).toHaveBeenCalledTimes(2);
     expect(retried).toBe(asset);
   });
 
   it('retries failed loads up to maxRetries', async () => {
     const { platform } = createMockPlatform();
     const asset = createImageAsset('hero');
-    platform.loadAsset = vi
+    platform.assets.load = vi
       .fn()
       .mockRejectedValueOnce(new Error('temporary error 1'))
       .mockRejectedValueOnce(new Error('temporary error 2'))
@@ -62,7 +62,7 @@ describe('Loader cache', () => {
       retry: { maxRetries: 2 },
     });
 
-    expect(platform.loadAsset).toHaveBeenCalledTimes(3);
+    expect(platform.assets.load).toHaveBeenCalledTimes(3);
     expect(loaded).toBe(asset);
   });
 
@@ -71,7 +71,7 @@ describe('Loader cache', () => {
     try {
       const { platform } = createMockPlatform();
       const asset = createImageAsset('hero');
-      platform.loadAsset = vi.fn().mockRejectedValueOnce(new Error('temporary error')).mockResolvedValueOnce(asset);
+      platform.assets.load = vi.fn().mockRejectedValueOnce(new Error('temporary error')).mockResolvedValueOnce(asset);
       const loader = new Loader(platform);
 
       const promise = loader.load(imageAsset('/hero.png'), {
@@ -79,14 +79,14 @@ describe('Loader cache', () => {
       });
 
       await Promise.resolve();
-      expect(platform.loadAsset).toHaveBeenCalledTimes(1);
+      expect(platform.assets.load).toHaveBeenCalledTimes(1);
 
       await vi.advanceTimersByTimeAsync(99);
-      expect(platform.loadAsset).toHaveBeenCalledTimes(1);
+      expect(platform.assets.load).toHaveBeenCalledTimes(1);
 
       await vi.advanceTimersByTimeAsync(1);
       await expect(promise).resolves.toBe(asset);
-      expect(platform.loadAsset).toHaveBeenCalledTimes(2);
+      expect(platform.assets.load).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
     }
@@ -101,12 +101,12 @@ describe('Loader cache', () => {
     await expect(loader.load(imageAsset('/hero.png'), { signal: controller.signal })).rejects.toMatchObject({
       name: 'AbortError',
     });
-    expect(platform.loadAsset).not.toHaveBeenCalled();
+    expect(platform.assets.load).not.toHaveBeenCalled();
   });
 
   it('aborts the shared platform load after all waiting callers abort', async () => {
     const { platform } = createMockPlatform();
-    platform.loadAsset = vi.fn(
+    platform.assets.load = vi.fn(
       async (_spec, options?: { signal?: AbortSignal }): Promise<Asset> =>
         new Promise<Asset>((_resolve, reject) => {
           options?.signal?.addEventListener(
@@ -129,23 +129,23 @@ describe('Loader cache', () => {
 
     controller1.abort();
     await expect(p1).rejects.toMatchObject({ name: 'AbortError' });
-    expect(platform.loadAsset).toHaveBeenCalledTimes(1);
+    expect(platform.assets.load).toHaveBeenCalledTimes(1);
 
     controller2.abort();
     await expect(p2).rejects.toMatchObject({ name: 'AbortError' });
-    expect(platform.loadAsset).toHaveBeenCalledTimes(1);
+    expect(platform.assets.load).toHaveBeenCalledTimes(1);
   });
 
   it('uses custom key to reuse cached asset', async () => {
     const { platform } = createMockPlatform();
     const asset = createImageAsset('hero');
-    platform.loadAsset = vi.fn(async () => asset);
+    platform.assets.load = vi.fn(async () => asset);
     const loader = new Loader(platform);
 
     const first = await loader.load(imageAsset('/hero-v1.png'), { key: 'hero' });
     const second = await loader.load(imageAsset('/hero-v2.png'), { key: 'hero' });
 
-    expect(platform.loadAsset).toHaveBeenCalledTimes(1);
+    expect(platform.assets.load).toHaveBeenCalledTimes(1);
     expect(first).toBe(asset);
     expect(second).toBe(asset);
   });
@@ -164,7 +164,7 @@ describe('Loader cache', () => {
   it('rejects joining an in-flight load with a different asset type', async () => {
     const { platform } = createMockPlatform();
     let rejectLoad!: (error: Error) => void;
-    platform.loadAsset = vi.fn(
+    platform.assets.load = vi.fn(
       () =>
         new Promise<Asset>((_resolve, reject) => {
           rejectLoad = reject;

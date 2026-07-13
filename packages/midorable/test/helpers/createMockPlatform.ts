@@ -172,7 +172,7 @@ export function createMockPlatform() {
   };
 
   let loopCallback: ((now: number) => void) | null = null;
-  const loadAsset = vi.fn(
+  const load = vi.fn(
     async <TSpec extends AssetSpec>(
       spec: TSpec,
       _options?: { signal?: AbortSignal },
@@ -190,11 +190,7 @@ export function createMockPlatform() {
     },
   );
 
-  const platform = {
-    renderer,
-    audio,
-    input,
-    dispose: vi.fn(),
+  const host = {
     startLoop: vi.fn((callback: (now: number) => void) => {
       loopCallback = callback;
     }),
@@ -202,23 +198,39 @@ export function createMockPlatform() {
       loopCallback = null;
     }),
     resize: vi.fn(),
-    loadAsset: loadAsset as any,
-    unloadAsset: vi.fn(),
+    setCursor: vi.fn(),
+  };
+  const graphics = {
+    renderer,
     createTexture: vi.fn((width: number, height: number) => createMockTexture(width, height)),
     filterCapabilities: null,
     createFilter: vi.fn(async () => {
       throw new Error('Shader filters are not supported on mock platform');
     }),
-    getFeature: vi.fn(() => undefined),
-    setCursor: vi.fn(),
+  };
+  const assets = {
+    load: load as any,
+    unload: vi.fn(),
     mediaQuery: vi.fn(() => 'unknown' as const),
+  };
+  const platform = {
+    host,
+    graphics,
+    audio,
+    input,
+    assets,
+    dispose: vi.fn(),
+    getFeature: vi.fn(() => undefined),
   } satisfies Platform;
 
   return {
     platform,
     renderer,
+    host,
+    graphics,
     audio,
     input,
+    assets,
     inputState,
     triggerTick(now: number) {
       if (!loopCallback) throw new Error('Loop callback is not active');

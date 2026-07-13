@@ -1,3 +1,5 @@
+import { MediaQuery, MediaSupportLevel } from './types';
+
 /**
  * アセットの種類のリスト
  */
@@ -153,4 +155,65 @@ export function textAsset(src: string): TextAssetSpec {
  */
 export function binaryAsset(src: string): BinaryAssetSpec {
   return { type: 'binary', src };
+}
+
+/**
+ * アセットを扱うPlatformの機能を表すインターフェース
+ */
+export interface AssetsBackend {
+  /**
+   * アセットを読み込む
+   *
+   * @remarks
+   * `spec.type` に対応する `Asset` を返す。返却する asset の `type` は必ず `spec.type` と一致させる。
+   * `id` は Platform 内で一意に扱える値にする。特別な理由がなければ `spec.src` を使ってよい。
+   *
+   * `options.signal` が abort された場合は、可能な限り読み込みを中断し、`AbortError` 相当のエラーで
+   * reject する。すでに完了した読み込みや中断不能な読み込みでは、Platform の制約に応じて完了してもよい。
+   *
+   * @param spec - 読み込むアセット定義
+   * @param options - オプション
+   * @returns 読み込んだアセットオブジェクトを返すPromise。そのプラットフォームで非対応のアセット種別が指定された場合はPromiseがrejectされる。読み込みに失敗した場合も同様にrejectされる。
+   */
+  load<TSpec extends AssetSpec>(spec: TSpec, options?: LoadAssetOptions): Promise<ResolvedAsset<TSpec>>;
+
+  /**
+   * 読み込み済みアセットを解放する
+   *
+   * @remarks
+   * `loadAsset()` が確保した Platform 側リソースを解放する。
+   * 同じ asset が複数回渡された場合や、すでに解放済みの場合は no-op として扱うことが望ましい。
+   *
+   * @param asset - アセットオブジェクト
+   */
+  unload(asset: Asset): void;
+
+  /**
+   * メディア種別に応じた機能のサポート状況を返す。
+   *
+   * @remarks
+   * 例えば、特定の音声フォーマットのサポート状況を確認するために使用される。
+   *
+   * @param query - メディアクエリ
+   * @returns クエリに対するサポート状況
+   *
+   * @example
+   * ```ts
+   * const supportLevel = platform.assets.mediaQuery({ type: 'audio', mime: 'audio/ogg' });
+   * if (supportLevel === 'supported') {
+   *   // Ogg Vorbis形式の音声がサポートされている場合の処理
+   * } else {
+   *   // サポートされていない場合の処理
+   * }
+   * ```
+   */
+  mediaQuery(query: MediaQuery): MediaSupportLevel;
+}
+
+/**
+ * アセットの読み込みオプション
+ */
+export interface LoadAssetOptions {
+  /** 読み込みのキャンセルに使用するAbortSignal */
+  signal?: AbortSignal;
 }

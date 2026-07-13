@@ -13,7 +13,7 @@ describe('Loader unload', () => {
   it('unloads by asset instance and removes cache entry', async () => {
     const { platform } = createMockPlatform();
     const image = createImageAsset('image');
-    platform.loadAsset = vi.fn(async () => image);
+    platform.assets.load = vi.fn(async () => image);
     const loader = new Loader(platform);
     await loader.load(imageAsset('/image.png'), { key: 'image' });
 
@@ -21,8 +21,8 @@ describe('Loader unload', () => {
     await loader.unload(image);
 
     expect(loader.get('image')).toBeUndefined();
-    expect(platform.unloadAsset).toHaveBeenCalledTimes(1);
-    expect(platform.unloadAsset).toHaveBeenCalledWith(image);
+    expect(platform.assets.unload).toHaveBeenCalledTimes(1);
+    expect(platform.assets.unload).toHaveBeenCalledWith(image);
   });
 
   it('unloadAllAssets unloads all asset types', async () => {
@@ -31,7 +31,7 @@ describe('Loader unload', () => {
     const audio = createAudioAsset('audio');
     const text = createTextAsset('text', 'hello');
     const binary = createBinaryAsset('binary');
-    platform.loadAsset = vi.fn(async (spec) => {
+    platform.assets.load = vi.fn(async (spec) => {
       switch (spec.type) {
         case 'image':
           return image;
@@ -57,17 +57,17 @@ describe('Loader unload', () => {
     expect(loader.get('audio')).toBeUndefined();
     expect(loader.get('text')).toBeUndefined();
     expect(loader.get('binary')).toBeUndefined();
-    expect(platform.unloadAsset).toHaveBeenCalledTimes(4);
-    expect(platform.unloadAsset).toHaveBeenNthCalledWith(1, image);
-    expect(platform.unloadAsset).toHaveBeenNthCalledWith(2, audio);
-    expect(platform.unloadAsset).toHaveBeenNthCalledWith(3, text);
-    expect(platform.unloadAsset).toHaveBeenNthCalledWith(4, binary);
+    expect(platform.assets.unload).toHaveBeenCalledTimes(4);
+    expect(platform.assets.unload).toHaveBeenNthCalledWith(1, image);
+    expect(platform.assets.unload).toHaveBeenNthCalledWith(2, audio);
+    expect(platform.assets.unload).toHaveBeenNthCalledWith(3, text);
+    expect(platform.assets.unload).toHaveBeenNthCalledWith(4, binary);
   });
 
   it('dispose unloads cached assets once and prevents further loads', async () => {
     const { platform } = createMockPlatform();
     const image = createImageAsset('image');
-    platform.loadAsset = vi.fn(async () => image);
+    platform.assets.load = vi.fn(async () => image);
     const onDispose = vi.fn();
     const loader = new Loader(platform, { onDispose });
     await loader.load(imageAsset('/image.png'), { key: 'image' });
@@ -76,8 +76,8 @@ describe('Loader unload', () => {
     await loader.dispose();
 
     expect(loader.disposed).toBe(true);
-    expect(platform.unloadAsset).toHaveBeenCalledTimes(1);
-    expect(platform.unloadAsset).toHaveBeenCalledWith(image);
+    expect(platform.assets.unload).toHaveBeenCalledTimes(1);
+    expect(platform.assets.unload).toHaveBeenCalledWith(image);
     expect(onDispose).toHaveBeenCalledTimes(1);
     expect(() => loader.get('image')).toThrow('Loader has been disposed');
     expect(() => loader.load(imageAsset('/again.png'))).toThrow('Loader has been disposed');

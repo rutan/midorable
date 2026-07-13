@@ -37,12 +37,12 @@ describe('HeadlessPlatform', () => {
 
   it('records renderer commands in record mode', async () => {
     const platform = await createHeadlessPlatform({ rendererMode: 'record' });
-    platform.resize(320, 240);
-    platform.renderer.beginFrame();
-    platform.renderer.clear({ r: 1, g: 2, b: 3, a: 1 });
-    platform.renderer.endFrame();
+    platform.host.resize(320, 240);
+    platform.graphics.renderer.beginFrame();
+    platform.graphics.renderer.clear({ r: 1, g: 2, b: 3, a: 1 });
+    platform.graphics.renderer.endFrame();
 
-    const renderer = platform.renderer as HeadlessRenderer;
+    const renderer = platform.graphics.renderer as HeadlessRenderer;
     expect(renderer.size).toEqual({ width: 320, height: 240 });
     expect(renderer.commands.length).toBe(1);
     expect(renderer.commands[0]?.type).toBe('clear');
@@ -67,7 +67,7 @@ describe('HeadlessPlatform', () => {
     } satisfies RenderState;
 
     expect(mesh).toBeDefined();
-    platform.renderer.beginFrame();
+    platform.graphics.renderer.beginFrame();
     mesh!.drawTexturedTriangles({
       image,
       state,
@@ -76,9 +76,9 @@ describe('HeadlessPlatform', () => {
       indices: [0, 1, 2],
       tint: { r: 255, g: 128, b: 64, a: 0.5 },
     });
-    platform.renderer.endFrame();
+    platform.graphics.renderer.endFrame();
 
-    const command = platform.renderer.commands[0];
+    const command = platform.graphics.renderer.commands[0];
     expect(command?.type).toBe('drawTexturedTriangles');
     expect(command).toMatchObject({
       positions: [0, 0, 16, 0, 0, 16],
@@ -98,22 +98,22 @@ describe('HeadlessPlatform', () => {
       },
     });
 
-    const text1 = (await platform.loadAsset(textAsset('text://asset'))) as TextAsset;
-    const text2 = (await platform.loadAsset(textAsset('text://asset'))) as TextAsset;
+    const text1 = (await platform.assets.load(textAsset('text://asset'))) as TextAsset;
+    const text2 = (await platform.assets.load(textAsset('text://asset'))) as TextAsset;
     expect(text1).not.toBe(text2);
     expect(text1.content).toBe('hello');
     expect(fetchText).toHaveBeenCalledTimes(1);
-    platform.unloadAsset(text1);
-    const text3 = (await platform.loadAsset(textAsset('text://asset'))) as TextAsset;
+    platform.assets.unload(text1);
+    const text3 = (await platform.assets.load(textAsset('text://asset'))) as TextAsset;
     expect(fetchText).toHaveBeenCalledTimes(1);
     expect(text3).not.toBe(text1);
-    platform.unloadAsset(text2);
-    platform.unloadAsset(text3);
-    const text4 = (await platform.loadAsset(textAsset('text://asset'))) as TextAsset;
+    platform.assets.unload(text2);
+    platform.assets.unload(text3);
+    const text4 = (await platform.assets.load(textAsset('text://asset'))) as TextAsset;
     expect(fetchText).toHaveBeenCalledTimes(2);
     expect(text4.content).toBe('hello');
 
-    const binary = (await platform.loadAsset(binaryAsset('bin://asset'))) as BinaryAsset;
+    const binary = (await platform.assets.load(binaryAsset('bin://asset'))) as BinaryAsset;
     expect(binary.content.byteLength).toBe(3);
     expect(fetchBinary).toHaveBeenCalledTimes(1);
   });
@@ -132,8 +132,8 @@ describe('HeadlessPlatform', () => {
       },
     });
 
-    const text = (await platform.loadAsset(textAsset('text://from-fetch'))) as TextAsset;
-    const binary = (await platform.loadAsset(binaryAsset('bin://from-fetch'))) as BinaryAsset;
+    const text = (await platform.assets.load(textAsset('text://from-fetch'))) as TextAsset;
+    const binary = (await platform.assets.load(binaryAsset('bin://from-fetch'))) as BinaryAsset;
 
     expect(text.content).toBe('from-fetch');
     expect(binary.content.byteLength).toBe(2);
@@ -163,8 +163,8 @@ describe('HeadlessPlatform', () => {
       },
     });
 
-    await expect(platform.loadAsset(textAsset('text://retry'))).rejects.toThrow('temporary failure');
-    const text = (await platform.loadAsset(textAsset('text://retry'))) as TextAsset;
+    await expect(platform.assets.load(textAsset('text://retry'))).rejects.toThrow('temporary failure');
+    const text = (await platform.assets.load(textAsset('text://retry'))) as TextAsset;
 
     expect(text.content).toBe('ok');
     expect(fetchText).toHaveBeenCalledTimes(2);
@@ -182,7 +182,7 @@ describe('HeadlessPlatform', () => {
     });
     const controller = new AbortController();
 
-    const text = (await platform.loadAsset(textAsset('text://signal'), { signal: controller.signal })) as TextAsset;
+    const text = (await platform.assets.load(textAsset('text://signal'), { signal: controller.signal })) as TextAsset;
 
     expect(text.content).toBe('ok');
     expect(fetchText).toHaveBeenCalledTimes(1);

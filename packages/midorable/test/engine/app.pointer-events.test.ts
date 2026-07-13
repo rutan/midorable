@@ -61,8 +61,8 @@ describe('App pointer events', () => {
     expect(move).toHaveBeenCalledTimes(1);
     expect(up).toHaveBeenCalledTimes(1);
     expect(leave).toHaveBeenCalledTimes(1);
-    expect(platform.setCursor).toHaveBeenNthCalledWith(1, 'pointer');
-    expect(platform.setCursor).toHaveBeenNthCalledWith(2, 'default');
+    expect(platform.host.setCursor).toHaveBeenNthCalledWith(1, 'pointer');
+    expect(platform.host.setCursor).toHaveBeenNthCalledWith(2, 'default');
   });
 
   it('dispatches mouse middle/right button events', () => {

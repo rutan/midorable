@@ -34,7 +34,7 @@ export class WebGpuPlatform extends BrowserPlatformBase {
     return this._format;
   }
 
-  get filterCapabilities(): RenderFilterCapabilities | null {
+  protected get filterCapabilities(): RenderFilterCapabilities | null {
     return WebGpuPlatform.FILTER_CAPABILITIES;
   }
 
@@ -99,7 +99,7 @@ export class WebGpuPlatform extends BrowserPlatformBase {
     this._webgpuRenderer?.releaseExternalTexture(image.source);
   }
 
-  async createFilter(definition: ShaderFilterDefinition): Promise<FilterInstance> {
+  protected async createFilter(definition: ShaderFilterDefinition): Promise<FilterInstance> {
     const renderer = this._webgpuRenderer;
     if (!renderer) {
       throw new Error('WebGPU renderer is not initialized');

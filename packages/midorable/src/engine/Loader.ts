@@ -246,7 +246,7 @@ export class Loader {
       throwIfAborted(signal);
 
       try {
-        return await this._platform.loadAsset(spec, { signal });
+        return await this._platform.assets.load(spec, { signal });
       } catch (error) {
         lastError = error;
         if (attempt === maxRetries || isAbortError(error)) break;
@@ -345,7 +345,7 @@ export class Loader {
       }
     }
 
-    this._platform.unloadAsset(asset);
+    this._platform.assets.unload(asset);
   }
 
   /**
@@ -355,7 +355,7 @@ export class Loader {
     if (this._disposed) return;
 
     for (const cache of this._cache.values()) {
-      this._platform.unloadAsset(cache);
+      this._platform.assets.unload(cache);
     }
     this._cache.clear();
     this._cacheTypes.clear();

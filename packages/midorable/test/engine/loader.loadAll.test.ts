@@ -9,7 +9,7 @@ describe('Loader loadAll', () => {
     const { platform } = createMockPlatform();
     const dog = createImageAsset('dog');
     const bgm = createAudioAsset('bgm');
-    platform.loadAsset = vi.fn(async (spec) => {
+    platform.assets.load = vi.fn(async (spec) => {
       switch (spec.type) {
         case 'image':
           return dog;
@@ -30,13 +30,13 @@ describe('Loader loadAll', () => {
     expect(assets.bgm).toBe(bgm);
     expect(loader.get('dog')).toBe(dog);
     expect(loader.get('bgm')).toBe(bgm);
-    expect(platform.loadAsset).toHaveBeenCalledTimes(2);
+    expect(platform.assets.load).toHaveBeenCalledTimes(2);
   });
 
   it('reuses cached assets by object keys', async () => {
     const { platform } = createMockPlatform();
     const dog = createImageAsset('dog');
-    platform.loadAsset = vi.fn(async () => dog);
+    platform.assets.load = vi.fn(async () => dog);
     const loader = new Loader(platform);
 
     const first = await loader.loadAll({
@@ -48,7 +48,7 @@ describe('Loader loadAll', () => {
 
     expect(first.dog).toBe(dog);
     expect(second.dog).toBe(dog);
-    expect(platform.loadAsset).toHaveBeenCalledTimes(1);
+    expect(platform.assets.load).toHaveBeenCalledTimes(1);
   });
 
   it('passes retry options to each load and creates platform abort signals', async () => {
@@ -56,7 +56,7 @@ describe('Loader loadAll', () => {
     const dog = createImageAsset('dog');
     const bgm = createAudioAsset('bgm');
     const calls: { key: string; signal?: AbortSignal }[] = [];
-    platform.loadAsset = vi.fn(async (spec, options?: { signal?: AbortSignal }) => {
+    platform.assets.load = vi.fn(async (spec, options?: { signal?: AbortSignal }) => {
       calls.push({ key: spec.src, signal: options?.signal });
       if (spec.src === '/dog.png' && calls.filter((call) => call.key === '/dog.png').length === 1) {
         throw new Error('temporary failure');
@@ -77,7 +77,7 @@ describe('Loader loadAll', () => {
 
     expect(assets.dog).toBe(dog);
     expect(assets.bgm).toBe(bgm);
-    expect(platform.loadAsset).toHaveBeenCalledTimes(3);
+    expect(platform.assets.load).toHaveBeenCalledTimes(3);
     expect(calls.map((call) => call.key)).toEqual(['/dog.png', '/bgm.mp3', '/dog.png']);
     expect(calls.every((call) => call.signal instanceof AbortSignal)).toBe(true);
   });
@@ -97,7 +97,7 @@ describe('Loader loadAll', () => {
         { signal: controller.signal },
       ),
     ).rejects.toMatchObject({ name: 'AbortError' });
-    expect(platform.loadAsset).not.toHaveBeenCalled();
+    expect(platform.assets.load).not.toHaveBeenCalled();
   });
 
   it('preserves per-key asset types', async () => {
@@ -120,7 +120,7 @@ describe('Loader loadAll', () => {
     const { platform } = createMockPlatform();
     const dog = createImageAsset('dog');
     const bgm = createAudioAsset('bgm');
-    platform.loadAsset = vi.fn(async (spec) => {
+    platform.assets.load = vi.fn(async (spec) => {
       return spec.type === 'image' ? dog : bgm;
     });
     const loader = new Loader(platform);
@@ -160,7 +160,7 @@ describe('Loader loadAll', () => {
 
   it('reports failed progress before rejecting', async () => {
     const { platform } = createMockPlatform();
-    platform.loadAsset = vi.fn(async (spec) => {
+    platform.assets.load = vi.fn(async (spec) => {
       if (spec.src === '/dog.png') {
         throw new Error('load failed');
       }
@@ -206,7 +206,7 @@ describe('Loader loadAll', () => {
     let activeLoads = 0;
     let maxActiveLoads = 0;
 
-    platform.loadAsset = vi.fn(
+    platform.assets.load = vi.fn(
       (spec: AssetSpec) =>
         new Promise<ImageAsset>((resolve) => {
           started.push(spec.src);
@@ -262,7 +262,7 @@ describe('Loader loadAll', () => {
     let activeLoads = 0;
     let maxActiveLoads = 0;
 
-    platform.loadAsset = vi.fn(
+    platform.assets.load = vi.fn(
       (spec: AssetSpec) =>
         new Promise<ImageAsset>((resolve) => {
           started.push(spec.src);
@@ -312,7 +312,7 @@ describe('Loader tryLoadAll', () => {
   it('returns per-key settled results', async () => {
     const { platform } = createMockPlatform();
     const dog = createImageAsset('dog');
-    platform.loadAsset = vi.fn(async (spec) => {
+    platform.assets.load = vi.fn(async (spec) => {
       if (spec.src === '/dog.png') {
         return dog;
       }
@@ -361,7 +361,7 @@ describe('Loader tryLoadAll', () => {
       progress: { total: number; completed: number; failed: number; pending: number };
       currentAsset?: { key: string; type: string; src: string };
     }> = [];
-    platform.loadAsset = vi.fn(async (spec) => {
+    platform.assets.load = vi.fn(async (spec) => {
       if (spec.src === '/cat.png') {
         throw new Error('cat failed');
       }
@@ -412,7 +412,7 @@ describe('Loader tryLoadAll', () => {
     let activeLoads = 0;
     let maxActiveLoads = 0;
 
-    platform.loadAsset = vi.fn(
+    platform.assets.load = vi.fn(
       (spec: AssetSpec) =>
         new Promise<ImageAsset>((resolve, reject) => {
           started.push(spec.src);

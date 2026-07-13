@@ -102,7 +102,7 @@ export class App {
     this._root = new DisplayObject({ context: this._context });
     this._inputController = new InputController(this._platform.input);
 
-    this._platform.resize(this._width, this._height);
+    this._platform.host.resize(this._width, this._height);
   }
 
   /**
@@ -209,7 +209,7 @@ export class App {
    * ```
    */
   createTexture(width: number, height: number): Texture {
-    return this._platform.createTexture(width, height);
+    return this._platform.graphics.createTexture(width, height);
   }
 
   /**
@@ -220,7 +220,7 @@ export class App {
    * シェーダーを利用する場合は、この情報をもとに適切な言語でシェーダーフィルターを作成する必要がある。
    */
   get filterCapabilities(): RenderFilterCapabilities | null {
-    return this._platform.filterCapabilities || null;
+    return this._platform.graphics.filterCapabilities || null;
   }
 
   /**
@@ -229,7 +229,7 @@ export class App {
    */
   createFilter(definition: ShaderFilterDefinition): Promise<FilterInstance> {
     return (
-      this._platform.createFilter?.(definition) ??
+      this._platform.graphics.createFilter?.(definition) ??
       Promise.reject(new Error('createFilter is not supported on this platform'))
     );
   }
@@ -254,7 +254,7 @@ export class App {
     if (this._mediaQueryCache.has(cacheKey)) {
       return this._mediaQueryCache.get(cacheKey)!;
     }
-    const result = this._platform.mediaQuery(query);
+    const result = this._platform.assets.mediaQuery(query);
     this._mediaQueryCache.set(cacheKey, result);
     return result;
   }
@@ -310,7 +310,7 @@ export class App {
       }
       this.render();
     };
-    this._platform.startLoop(tick);
+    this._platform.host.startLoop(tick);
   }
 
   /**
@@ -325,7 +325,7 @@ export class App {
     if (!this._isRunning) return;
 
     this._isRunning = false;
-    this._platform.stopLoop();
+    this._platform.host.stopLoop();
   }
 
   /**
@@ -356,10 +356,11 @@ export class App {
    * 通常は start() を呼び出すことで自動的に呼び出されるため、アプリケーションコードで直接呼び出す必要はない。
    */
   render() {
-    this._platform.renderer.beginFrame();
-    this._platform.renderer.clear(this._backgroundColor);
-    this._root.render(this._platform.renderer);
-    this._platform.renderer.endFrame();
+    const renderer = this._platform.graphics.renderer;
+    renderer.beginFrame();
+    renderer.clear(this._backgroundColor);
+    this._root.render(renderer);
+    renderer.endFrame();
   }
 
   /**
@@ -520,6 +521,6 @@ export class App {
       return;
     }
     this._cursor = cursor;
-    this._platform.setCursor(cursor);
+    this._platform.host.setCursor(cursor);
   }
 }

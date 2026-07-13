@@ -63,7 +63,7 @@ function transformedState(x: number, y: number, scaleX: number, scaleY: number):
 }
 
 function drawSolidTexture(platform: BrowserPlatformBase, width: number, height: number, color: string) {
-  const texture = platform.createTexture(width, height);
+  const texture = platform.graphics.createTexture(width, height);
   const rgba = parseHexColor(color);
   texture.drawRect({ x: 0, y: 0, width, height, color: rgba });
   activeDisposables.push(texture);
@@ -73,13 +73,13 @@ function drawSolidTexture(platform: BrowserPlatformBase, width: number, height: 
 async function runSpriteSmoke(kind: PlatformKind): Promise<SmokeResult> {
   const platform = await createPlatform(kind);
   activePlatform = platform;
-  platform.resize(64, 64);
+  platform.host.resize(64, 64);
   const texture = drawSolidTexture(platform, 16, 16, '#00ff00');
 
-  platform.renderer.beginFrame();
-  platform.renderer.clear({ r: 255, g: 0, b: 0, a: 1 });
-  platform.renderer.drawSprite(texture, translatedState(8, 8));
-  platform.renderer.endFrame();
+  platform.graphics.renderer.beginFrame();
+  platform.graphics.renderer.clear({ r: 255, g: 0, b: 0, a: 1 });
+  platform.graphics.renderer.drawSprite(texture, translatedState(8, 8));
+  platform.graphics.renderer.endFrame();
 
   await nextPaint();
   const canvasAttached = platform.canvas.parentElement === platform.element;
@@ -89,18 +89,18 @@ async function runSpriteSmoke(kind: PlatformKind): Promise<SmokeResult> {
 async function runMaskSmoke(kind: PlatformKind): Promise<SmokeResult> {
   const platform = await createPlatform(kind);
   activePlatform = platform;
-  platform.resize(64, 64);
+  platform.host.resize(64, 64);
   const content = drawSolidTexture(platform, 48, 48, '#00ff00');
   const mask = drawSolidTexture(platform, 16, 16, '#ffffff');
 
-  platform.renderer.beginFrame();
-  platform.renderer.clear({ r: 0, g: 0, b: 0, a: 1 });
-  platform.renderer.pushMask();
-  platform.renderer.drawSprite(content, translatedState(8, 8));
-  platform.renderer.activateMask();
-  platform.renderer.drawSprite(mask, translatedState(24, 24));
-  platform.renderer.popMask();
-  platform.renderer.endFrame();
+  platform.graphics.renderer.beginFrame();
+  platform.graphics.renderer.clear({ r: 0, g: 0, b: 0, a: 1 });
+  platform.graphics.renderer.pushMask();
+  platform.graphics.renderer.drawSprite(content, translatedState(8, 8));
+  platform.graphics.renderer.activateMask();
+  platform.graphics.renderer.drawSprite(mask, translatedState(24, 24));
+  platform.graphics.renderer.popMask();
+  platform.graphics.renderer.endFrame();
 
   await nextPaint();
   const canvasAttached = platform.canvas.parentElement === platform.element;
@@ -110,18 +110,18 @@ async function runMaskSmoke(kind: PlatformKind): Promise<SmokeResult> {
 async function runFilterSmoke(kind: PlatformKind): Promise<SmokeResult> {
   const platform = await createPlatform(kind);
   activePlatform = platform;
-  platform.resize(64, 64);
+  platform.host.resize(64, 64);
   const texture = drawSolidTexture(platform, 16, 16, '#00ff00');
-  const filter = await platform.createFilter(createRedFilterDefinition(kind));
+  const filter = await platform.graphics.createFilter!(createRedFilterDefinition(kind));
   activeDisposables.push(filter);
 
-  platform.renderer.beginFrame();
-  platform.renderer.clear({ r: 0, g: 0, b: 0, a: 1 });
-  if (platform.renderer.pushFilters([filter], translatedState(8, 8))) {
-    platform.renderer.drawSprite(texture, translatedState(8, 8));
-    platform.renderer.popFilters();
+  platform.graphics.renderer.beginFrame();
+  platform.graphics.renderer.clear({ r: 0, g: 0, b: 0, a: 1 });
+  if (platform.graphics.renderer.pushFilters([filter], translatedState(8, 8))) {
+    platform.graphics.renderer.drawSprite(texture, translatedState(8, 8));
+    platform.graphics.renderer.popFilters();
   }
-  platform.renderer.endFrame();
+  platform.graphics.renderer.endFrame();
 
   await nextPaint();
   const canvasAttached = platform.canvas.parentElement === platform.element;
@@ -131,15 +131,15 @@ async function runFilterSmoke(kind: PlatformKind): Promise<SmokeResult> {
 async function runMeshSmoke(kind: PlatformKind): Promise<SmokeResult> {
   const platform = await createPlatform(kind);
   activePlatform = platform;
-  platform.resize(64, 64);
+  platform.host.resize(64, 64);
   const texture = drawSolidTexture(platform, 16, 16, '#00ff00');
   const mesh = platform.getFeature('renderer.mesh');
   if (!mesh) {
     throw new Error('renderer.mesh is not supported');
   }
 
-  platform.renderer.beginFrame();
-  platform.renderer.clear({ r: 255, g: 0, b: 0, a: 1 });
+  platform.graphics.renderer.beginFrame();
+  platform.graphics.renderer.clear({ r: 255, g: 0, b: 0, a: 1 });
   mesh.drawTexturedTriangles({
     image: texture,
     state: identityState,
@@ -147,7 +147,7 @@ async function runMeshSmoke(kind: PlatformKind): Promise<SmokeResult> {
     uvs: [0, 0, 1, 0, 0, 1],
     indices: [0, 1, 2],
   });
-  platform.renderer.endFrame();
+  platform.graphics.renderer.endFrame();
 
   await nextPaint();
   const canvasAttached = platform.canvas.parentElement === platform.element;
@@ -156,7 +156,7 @@ async function runMeshSmoke(kind: PlatformKind): Promise<SmokeResult> {
 
 async function runDisposeSmoke(kind: PlatformKind): Promise<SmokeResult> {
   const platform = await createPlatform(kind);
-  platform.resize(64, 64);
+  platform.host.resize(64, 64);
   const canvas = platform.canvas;
   platform.dispose();
   platform.element.remove();
@@ -170,7 +170,7 @@ async function runSpriteBenchmark(kind: PlatformKind): Promise<BrowserBenchmarkR
     for (let index = 0; index < count; index += 1) {
       const x = (index * 13 + frame) % size;
       const y = (index * 17 + frame * 2) % size;
-      platform.renderer.drawSprite(texture, translatedState(x, y));
+      platform.graphics.renderer.drawSprite(texture, translatedState(x, y));
     }
   });
 }
@@ -180,11 +180,11 @@ async function runMaskBenchmark(kind: PlatformKind): Promise<BrowserBenchmarkRes
     for (let index = 0; index < count; index += 1) {
       const x = (index * 13 + frame) % size;
       const y = (index * 17 + frame * 2) % size;
-      platform.renderer.pushMask();
-      platform.renderer.drawSprite(texture, transformedState(x, y, 2, 2));
-      platform.renderer.activateMask();
-      platform.renderer.drawSprite(texture, translatedState(x + 4, y + 4));
-      platform.renderer.popMask();
+      platform.graphics.renderer.pushMask();
+      platform.graphics.renderer.drawSprite(texture, transformedState(x, y, 2, 2));
+      platform.graphics.renderer.activateMask();
+      platform.graphics.renderer.drawSprite(texture, translatedState(x + 4, y + 4));
+      platform.graphics.renderer.popMask();
     }
   });
 }
@@ -201,9 +201,9 @@ async function runFilterBenchmark(kind: PlatformKind): Promise<BrowserBenchmarkR
       for (let index = 0; index < count; index += 1) {
         const x = (index * 19 + frame) % size;
         const y = (index * 23 + frame * 2) % size;
-        if (platform.renderer.pushFilters([filter], translatedState(x, y))) {
-          platform.renderer.drawSprite(texture, translatedState(x, y));
-          platform.renderer.popFilters();
+        if (platform.graphics.renderer.pushFilters([filter], translatedState(x, y))) {
+          platform.graphics.renderer.drawSprite(texture, translatedState(x, y));
+          platform.graphics.renderer.popFilters();
         }
       }
     },
@@ -273,9 +273,11 @@ async function runRendererBenchmark(
   const size = 256;
   const platform = await createPlatform(kind, size);
   activePlatform = platform;
-  platform.resize(size, size);
+  platform.host.resize(size, size);
   const texture = drawSolidTexture(platform, 32, 32, '#00ff00');
-  const filter = options.createFilter ? await platform.createFilter(createRedFilterDefinition(kind)) : undefined;
+  const filter = options.createFilter
+    ? await platform.graphics.createFilter!(createRedFilterDefinition(kind))
+    : undefined;
   if (filter) {
     activeDisposables.push(filter);
   }
@@ -284,10 +286,10 @@ async function runRendererBenchmark(
   for (let frame = 0; frame < warmupFrames + frames; frame += 1) {
     await nextAnimationFrame();
     const startedAt = performance.now();
-    platform.renderer.beginFrame();
-    platform.renderer.clear({ r: 0, g: 0, b: 0, a: 1 });
+    platform.graphics.renderer.beginFrame();
+    platform.graphics.renderer.clear({ r: 0, g: 0, b: 0, a: 1 });
     draw(platform, texture, frame, size, iterations, filter);
-    platform.renderer.endFrame();
+    platform.graphics.renderer.endFrame();
     const duration = performance.now() - startedAt;
     if (frame >= warmupFrames) {
       durations.push(duration);
@@ -330,7 +332,11 @@ function drawNinePatch(
   for (let index = 0; index < frames.length; index += 1) {
     const frame = frames[index]!;
     const [dx, dy, dw, dh] = dst[index]!;
-    platform.renderer.drawSprite(texture, transformedState(dx, dy, dw / frame.width, dh / frame.height), frame);
+    platform.graphics.renderer.drawSprite(
+      texture,
+      transformedState(dx, dy, dw / frame.width, dh / frame.height),
+      frame,
+    );
   }
 }
 

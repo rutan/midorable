@@ -1,7 +1,9 @@
 import {
-  Asset,
+  AssetsBackend,
   AudioBackend,
   AssetSpec,
+  GraphicsBackend,
+  HostBackend,
   LoadAssetOptions,
   ResolvedAsset,
   InputBackend,
@@ -9,10 +11,6 @@ import {
   MediaSupportLevel,
   Platform,
   PlatformFeatureRegistry,
-  RenderFilterCapabilities,
-  ShaderFilterDefinition,
-  FilterInstance,
-  Texture,
 } from '@rutan/midorable/platform';
 import { HeadlessAudioBackend } from './HeadlessAudioBackend';
 import { HeadlessInput } from './HeadlessInput';
@@ -24,9 +22,11 @@ import { HeadlessPlatformConfig } from './types';
 type CancelLoop = () => void;
 
 export class HeadlessPlatform implements Platform {
-  readonly renderer: HeadlessRenderer;
+  readonly host: HostBackend;
+  readonly graphics: GraphicsBackend & { readonly renderer: HeadlessRenderer };
   readonly audio: AudioBackend;
   readonly input: InputBackend;
+  readonly assets: AssetsBackend;
 
   private _features: Partial<PlatformFeatureRegistry> = {};
   private _resources: HeadlessResourceStore;
@@ -42,7 +42,7 @@ export class HeadlessPlatform implements Platform {
 
   constructor(config: HeadlessPlatformConfig = {}) {
     this._rendererMode = config.rendererMode ?? 'noop';
-    this.renderer = new HeadlessRenderer(this._rendererMode);
+    const renderer = new HeadlessRenderer(this._rendererMode);
     this.audio = new HeadlessAudioBackend();
     this.input = new HeadlessInput();
     this._resources = new HeadlessResourceStore(config.resource);
@@ -51,9 +51,31 @@ export class HeadlessPlatform implements Platform {
     this._mediaQuery = config.mediaQuery;
     this._width = config.width ?? 0;
     this._height = config.height ?? 0;
-    this.renderer.resize(this._width, this._height);
+    renderer.resize(this._width, this._height);
+    this.host = {
+      startLoop: (callback) => this.startLoop(callback),
+      stopLoop: () => this.stopLoop(),
+      resize: (width, height) => this.resize(width, height),
+      setCursor: (cursor) => {
+        this._cursor = cursor;
+      },
+    };
+    this.graphics = {
+      renderer,
+      filterCapabilities: null,
+      createTexture: (width, height) =>
+        new HeadlessTexture(width, height, { recording: this._rendererMode === 'record' }),
+      createFilter: async (_definition) => {
+        throw new Error('Shader filters are not supported on headless platform');
+      },
+    };
+    this.assets = {
+      load: (spec, options) => this.loadAsset(spec, options),
+      unload: (asset) => this._resources.unload(asset),
+      mediaQuery: (query) => this.mediaQuery(query),
+    };
     this.setFeature('headless', { rendererMode: this._rendererMode });
-    this.setFeature('renderer.mesh', this.renderer);
+    this.setFeature('renderer.mesh', renderer);
     this.setFeature('system.locale', {
       getLocale() {
         return resolveLocale();
@@ -65,14 +87,14 @@ export class HeadlessPlatform implements Platform {
   }
 
   dispose(): void {
-    this.stopLoop();
+    this.host.stopLoop();
     this.audio.dispose();
     this.input.dispose();
     this._resources.clear();
     this.clearFeatures();
   }
 
-  startLoop(callback: (now: number) => void): void {
+  private startLoop(callback: (now: number) => void): void {
     this._loopCallback = callback;
     if (this._loopCancel) {
       return;
@@ -94,7 +116,7 @@ export class HeadlessPlatform implements Platform {
     this._loopCancel = this._schedule(tick);
   }
 
-  stopLoop(): void {
+  private stopLoop(): void {
     this._loopCallback = null;
     if (this._loopCancel) {
       this._loopCancel();
@@ -102,13 +124,16 @@ export class HeadlessPlatform implements Platform {
     }
   }
 
-  resize(width: number, height: number): void {
+  private resize(width: number, height: number): void {
     this._width = width;
     this._height = height;
-    this.renderer.resize(width, height);
+    this.graphics.renderer.resize(width, height);
   }
 
-  async loadAsset<TSpec extends AssetSpec>(spec: TSpec, options?: LoadAssetOptions): Promise<ResolvedAsset<TSpec>> {
+  private async loadAsset<TSpec extends AssetSpec>(
+    spec: TSpec,
+    options?: LoadAssetOptions,
+  ): Promise<ResolvedAsset<TSpec>> {
     switch (spec.type) {
       case 'image':
         return this._resources.loadImage(spec.src, options?.signal) as Promise<ResolvedAsset<TSpec>>;
@@ -121,31 +146,11 @@ export class HeadlessPlatform implements Platform {
     }
   }
 
-  unloadAsset(asset: Asset): void {
-    this._resources.unload(asset);
-  }
-
-  createTexture(width: number, height: number): Texture {
-    return new HeadlessTexture(width, height, { recording: this._rendererMode === 'record' });
-  }
-
   getFeature<K extends keyof PlatformFeatureRegistry>(key: K): PlatformFeatureRegistry[K] | undefined {
     return this._features[key] as PlatformFeatureRegistry[K] | undefined;
   }
 
-  get filterCapabilities(): RenderFilterCapabilities | null {
-    return null;
-  }
-
-  async createFilter(_definition: ShaderFilterDefinition): Promise<FilterInstance> {
-    throw new Error('Shader filters are not supported on headless platform');
-  }
-
-  setCursor(cursor: string | null): void {
-    this._cursor = cursor;
-  }
-
-  mediaQuery(query: MediaQuery): MediaSupportLevel {
+  private mediaQuery(query: MediaQuery): MediaSupportLevel {
     if (this._mediaQuery) {
       return this._mediaQuery(query);
     }

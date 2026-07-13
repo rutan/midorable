@@ -24,7 +24,7 @@ export class WebGlPlatform extends BrowserPlatformBase {
     return this._gl;
   }
 
-  get filterCapabilities(): RenderFilterCapabilities | null {
+  protected get filterCapabilities(): RenderFilterCapabilities | null {
     return WebGlPlatform.FILTER_CAPABILITIES;
   }
 
@@ -85,7 +85,7 @@ export class WebGlPlatform extends BrowserPlatformBase {
     }
   }
 
-  async createFilter(definition: ShaderFilterDefinition): Promise<FilterInstance> {
+  protected async createFilter(definition: ShaderFilterDefinition): Promise<FilterInstance> {
     const renderer = this._webglRenderer;
     if (!renderer) {
       throw new Error('WebGL renderer is not initialized');

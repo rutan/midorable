@@ -10,7 +10,7 @@ describe('App lifecycle', () => {
     await app.start();
     await app.start();
 
-    expect(platform.startLoop).toHaveBeenCalledTimes(1);
+    expect(platform.host.startLoop).toHaveBeenCalledTimes(1);
   });
 
   it('limits fixed updates per tick', async () => {
@@ -39,7 +39,7 @@ describe('App lifecycle', () => {
 
     await app.dispose();
 
-    expect(platform.stopLoop).toHaveBeenCalledTimes(1);
+    expect(platform.host.stopLoop).toHaveBeenCalledTimes(1);
     expect(defaultLoaderDispose).toHaveBeenCalledTimes(1);
     expect(extraLoaderDispose).toHaveBeenCalledTimes(1);
     expect(rootDispose).toHaveBeenCalledTimes(1);
