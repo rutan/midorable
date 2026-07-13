@@ -32,8 +32,10 @@ type MaskStackEntry = {
 };
 
 type FilterStackEntry = {
-  filters: Array<{ resource: WebGlFilterInstance; uniformData: Float32Array }>;
+  filters: readonly WebGlFilterBinding[];
 };
+
+type WebGlFilterBinding = FilterBinding & { readonly resource: WebGlFilterInstance };
 
 type SourceTextureCacheEntry = {
   texture: WebGLTexture;
@@ -407,14 +409,7 @@ export class WebGlRenderer implements Renderer {
     }
 
     this.flushSpriteBatch();
-    const enabledFilters = filters.flatMap((filter) =>
-      filter.resource instanceof WebGlFilterInstance && !filter.resource.disposed
-        ? [{ resource: filter.resource, uniformData: filter.uniformData }]
-        : [],
-    );
-    if (enabledFilters.length === 0) {
-      return;
-    }
+    assertWebGlFilterBindings(filters);
 
     const parentTarget = this.currentTarget;
     if (!parentTarget) {
@@ -423,7 +418,7 @@ export class WebGlRenderer implements Renderer {
 
     const target = this.acquireRenderTarget(parentTarget.width, parentTarget.height);
     this._targetStack.push(target);
-    this._filterStack.push({ filters: enabledFilters });
+    this._filterStack.push({ filters });
 
     this.bindTarget(target);
     this._gl.clearColor(0, 0, 0, 0);
@@ -1244,6 +1239,16 @@ function compileShader(gl: WebGL2RenderingContext, type: number, source: string)
   const error = gl.getShaderInfoLog(shader);
   gl.deleteShader(shader);
   throw new Error(`Failed to compile WebGL shader: ${error || 'unknown error'}`);
+}
+
+function assertWebGlFilterBindings(
+  filters: readonly FilterBinding[],
+): asserts filters is readonly WebGlFilterBinding[] {
+  for (const filter of filters) {
+    if (!(filter.resource instanceof WebGlFilterInstance) || filter.resource.disposed) {
+      throw new Error('Invalid WebGL filter resource');
+    }
+  }
 }
 
 function linkProgram(gl: WebGL2RenderingContext, vertexShader: WebGLShader, fragmentShader: WebGLShader): WebGLProgram {

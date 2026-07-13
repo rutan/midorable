@@ -43,6 +43,7 @@ type RenderTarget = {
   attachmentTexture: GPUTexture | null;
 };
 type FrameContext = { device: GPUDevice; canvas: HTMLCanvasElement; target: RenderTarget };
+type WebGpuFilterBinding = FilterBinding & { readonly resource: WebGpuFilterInstance };
 
 export class WebGpuRenderer implements Renderer {
   static readonly FILTER_UNIFORM_VEC4_COUNT = 16;
@@ -86,7 +87,7 @@ export class WebGpuRenderer implements Renderer {
   private _filterSampler: GPUSampler | null = null;
   private _filterStack: {
     target: RenderTarget;
-    filters: Array<{ resource: WebGpuFilterInstance; uniformData: Float32Array }>;
+    filters: readonly WebGpuFilterBinding[];
   }[] = [];
   private _pendingTextureDestroy = new Set<GPUTexture>();
   private _clearColor: GPUColor = { r: 0, g: 0, b: 0, a: 1 };
@@ -324,20 +325,13 @@ export class WebGpuRenderer implements Renderer {
     }
     const { device, canvas } = frame;
 
-    const enabledFilters = filters.flatMap((filter) =>
-      filter.resource instanceof WebGpuFilterInstance && !filter.resource.disposed
-        ? [{ resource: filter.resource, uniformData: filter.uniformData }]
-        : [],
-    );
-    if (enabledFilters.length === 0) {
-      return;
-    }
+    assertWebGpuFilterBindings(filters);
 
     this.flushAndEndPass(device);
 
     const target = this.createRenderTarget(device, canvas.width, canvas.height);
     this._targetStack.push(target);
-    this._filterStack.push({ target, filters: enabledFilters });
+    this._filterStack.push({ target, filters });
 
     this._pass = this.beginColorPass(target, 'clear', { r: 0, g: 0, b: 0, a: 0 });
   }
@@ -1193,6 +1187,16 @@ function roundUpTo(value: number, unit: number) {
     return unit;
   }
   return Math.ceil(value / unit) * unit;
+}
+
+function assertWebGpuFilterBindings(
+  filters: readonly FilterBinding[],
+): asserts filters is readonly WebGpuFilterBinding[] {
+  for (const filter of filters) {
+    if (!(filter.resource instanceof WebGpuFilterInstance) || filter.resource.disposed) {
+      throw new Error('Invalid WebGPU filter resource');
+    }
+  }
 }
 
 function createFilterShaderSource(fragmentShader: string) {

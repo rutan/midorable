@@ -24,9 +24,27 @@ interface BrowserBenchmarkResult {
   kind: PlatformKind;
   frames: number;
   iterations: number;
+  encode: BenchmarkTiming;
+  submit: BenchmarkTiming;
+  total: BenchmarkTiming;
+  meanCommandCount: number;
+  meanSpriteBatchCount: number;
+  meanInstanceCount: number;
+}
+
+interface BenchmarkTiming {
   meanMs: number;
   p95Ms: number;
   maxMs: number;
+}
+
+interface FrameMeasurement {
+  encodeMs: number;
+  submitMs: number;
+  totalMs: number;
+  commandCount: number;
+  spriteBatchCount: number;
+  instanceCount: number;
 }
 
 let activePlatform: BrowserPlatformBase | null = null;
@@ -82,15 +100,35 @@ function renderFrame(
   platform: BrowserPlatformBase,
   clearColor: { r: number; g: number; b: number; a: number },
   draw: (encoder: RenderCommandEncoder) => void,
-) {
+): FrameMeasurement {
   let encoder = renderEncoders.get(platform);
   if (!encoder) {
     encoder = new DefaultRenderCommandEncoder({ meshSupported: platform.graphics.capabilities.mesh !== undefined });
     renderEncoders.set(platform, encoder);
   }
+  const startedAt = performance.now();
   encoder.reset(clearColor);
   draw(encoder);
-  platform.graphics.renderer.submitFrame(encoder.finish());
+  const frame = encoder.finish();
+  const encodedAt = performance.now();
+  platform.graphics.renderer.submitFrame(frame);
+  const submittedAt = performance.now();
+  let spriteBatchCount = 0;
+  let instanceCount = 0;
+  for (const command of frame.commands) {
+    if (command.type === 'spriteBatch') {
+      spriteBatchCount += 1;
+      instanceCount += command.instanceCount;
+    }
+  }
+  return {
+    encodeMs: encodedAt - startedAt,
+    submitMs: submittedAt - encodedAt,
+    totalMs: submittedAt - startedAt,
+    commandCount: frame.commands.length,
+    spriteBatchCount,
+    instanceCount,
+  };
 }
 
 async function createFilter(platform: BrowserPlatformBase, definition: ShaderFilterDefinition) {
@@ -295,17 +333,25 @@ async function runRendererBenchmark(
   if (filter) {
     activeDisposables.push(filter);
   }
-  const durations: number[] = [];
+  const encodeDurations: number[] = [];
+  const submitDurations: number[] = [];
+  const totalDurations: number[] = [];
+  const commandCounts: number[] = [];
+  const spriteBatchCounts: number[] = [];
+  const instanceCounts: number[] = [];
 
   for (let frame = 0; frame < warmupFrames + frames; frame += 1) {
     await nextAnimationFrame();
-    const startedAt = performance.now();
-    renderFrame(platform, { r: 0, g: 0, b: 0, a: 1 }, (encoder) => {
+    const measurement = renderFrame(platform, { r: 0, g: 0, b: 0, a: 1 }, (encoder) => {
       draw(encoder, texture, frame, size, iterations, filter);
     });
-    const duration = performance.now() - startedAt;
     if (frame >= warmupFrames) {
-      durations.push(duration);
+      encodeDurations.push(measurement.encodeMs);
+      submitDurations.push(measurement.submitMs);
+      totalDurations.push(measurement.totalMs);
+      commandCounts.push(measurement.commandCount);
+      spriteBatchCounts.push(measurement.spriteBatchCount);
+      instanceCounts.push(measurement.instanceCount);
     }
   }
 
@@ -315,9 +361,12 @@ async function runRendererBenchmark(
     kind,
     frames,
     iterations,
-    meanMs: mean(durations),
-    p95Ms: percentile(durations, 0.95),
-    maxMs: Math.max(...durations),
+    encode: summarizeTiming(encodeDurations),
+    submit: summarizeTiming(submitDurations),
+    total: summarizeTiming(totalDurations),
+    meanCommandCount: mean(commandCounts),
+    meanSpriteBatchCount: mean(spriteBatchCounts),
+    meanInstanceCount: mean(instanceCounts),
   };
 }
 
@@ -396,6 +445,14 @@ function percentile(values: number[], percentileValue: number) {
   const sorted = [...values].sort((a, b) => a - b);
   const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * percentileValue) - 1));
   return sorted[index] ?? 0;
+}
+
+function summarizeTiming(values: number[]): BenchmarkTiming {
+  return {
+    meanMs: mean(values),
+    p95Ms: percentile(values, 0.95),
+    maxMs: Math.max(...values),
+  };
 }
 
 async function supports(kind: PlatformKind): Promise<boolean> {
