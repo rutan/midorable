@@ -1,5 +1,5 @@
-import { createEventHandlers, type AppContext, type DisplayObject } from '../../core';
-import type { EventHandlers } from '../../core/events';
+import { createEventHandlers, type AppContext, type DisplayObject } from '../../engine';
+import type { EventHandlers } from '../../engine/events';
 import type { SceneAssetMap, SceneAssetsDefinition } from './assets';
 import type { SceneDefinition, SceneDefinitions } from './definition';
 import { SceneRuntime } from './internal';

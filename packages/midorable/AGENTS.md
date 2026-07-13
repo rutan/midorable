@@ -15,8 +15,9 @@ see README.md for the concept.
 ## Directory Structure
 
 - src/: Main source code for the Midorable engine and demo.
-  - core/: Core engine modules (App, DisplayObjects, etc.). This directory is not dependent on any specific platform (ex. browser).
-  - platforms/: Platform-specific implementations (Canvas, WebGPU, etc.).
+  - engine/: Engine modules (App, DisplayObjects, Loader, etc.). This directory depends on the platform contracts.
+  - platform/: Contracts implemented by platform-specific packages (renderer, audio, input, assets, etc.).
+  - utils/: Optional utilities built on top of the engine.
   - demo.ts: Entry point for the demo application.
 
 ## Coding Style & Naming Conventions

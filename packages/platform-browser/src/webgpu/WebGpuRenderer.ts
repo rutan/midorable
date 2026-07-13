@@ -7,7 +7,7 @@ import {
   Renderer,
   RenderState,
   ShaderFilterDefinition,
-} from '@rutan/midorable';
+} from '@rutan/midorable/platform';
 import { clamp01 } from '../internal/utilities';
 import { WebGpuFilterInstance } from './WebGpuFilterInstance';
 import { WebGpuPlatform } from './WebGpuPlatform';

@@ -1,4 +1,4 @@
-import type { AppContext } from '../../core';
+import type { AppContext } from '../../engine';
 
 /**
  * シーンキーごとのパラメータ型を表すためのマーカーインターフェース

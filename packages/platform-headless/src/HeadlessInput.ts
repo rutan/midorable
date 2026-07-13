@@ -3,9 +3,23 @@ import {
   InputGamepadSnapshot,
   InputPointerSnapshot,
   InputSnapshot,
-  InputState,
   PointerButtonId,
-} from '@rutan/midorable';
+} from '@rutan/midorable/platform';
+
+interface LegacyInputState {
+  pointers: Array<{
+    id: number;
+    x: number;
+    y: number;
+    down: boolean;
+    pointerType: 'mouse' | 'touch' | 'pen';
+    inBounds: boolean;
+    pressedButtons: PointerButtonId[];
+  }>;
+  keyboard: {
+    down: ReadonlySet<string>;
+  };
+}
 
 export class HeadlessInput implements InputBackend {
   private _snapshot: InputSnapshot = createEmptyInputSnapshot();
@@ -38,8 +52,8 @@ export class HeadlessInput implements InputBackend {
     };
   }
 
-  // Legacy helper for tests that still prepare InputState directly.
-  setState(state: InputState): void {
+  // Legacy helper for tests that still prepare engine input state directly.
+  setState(state: LegacyInputState): void {
     const pointers = state.pointers.map((pointer) => inputPointerStateToSnapshot(pointer));
     this._snapshot = {
       pointers,
@@ -107,15 +121,7 @@ function clonePointerSnapshot(snapshot: InputPointerSnapshot): InputPointerSnaps
   };
 }
 
-function inputPointerStateToSnapshot(pointer: {
-  id: number;
-  x: number;
-  y: number;
-  down: boolean;
-  pointerType: 'mouse' | 'touch' | 'pen';
-  inBounds: boolean;
-  pressedButtons: PointerButtonId[];
-}): InputPointerSnapshot {
+function inputPointerStateToSnapshot(pointer: LegacyInputState['pointers'][number]): InputPointerSnapshot {
   if (pointer.pointerType === 'mouse') {
     const down = new Set(pointer.pressedButtons);
     const leftDown = pointer.down || down.has('left');

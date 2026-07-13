@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { imageAsset, type AssetSpec } from '../../../src';
-import { App } from '../../../src/core/App';
-import type { AppContext } from '../../../src/core/App';
-import { DisplayObject, type DisplayObjectProps } from '../../../src/core/displays/DisplayObject';
+import { App } from '../../../src/engine/App';
+import type { AppContext } from '../../../src/engine/AppContext';
+import { DisplayObject, type DisplayObjectProps } from '../../../src/engine/displays/DisplayObject';
 import {
   createSceneRouter,
   SceneAssetLoadingError,
@@ -189,7 +189,7 @@ describe('SceneRouter runtime', () => {
     const root = new DisplayObject({ context: app.context });
     const loadingStateRecorder = new TestLoadingStateRecorder();
     const preloadedImage = createImageAsset('img/preloaded.png');
-    vi.mocked(platform.loadAsset).mockResolvedValue(preloadedImage);
+    vi.mocked(platform.assets.load).mockResolvedValue(preloadedImage);
     let receivedAsset = null as ReturnType<AppContext['loader']['get']> | null;
 
     const getAssets = () => ({
@@ -272,7 +272,7 @@ describe('SceneRouter runtime', () => {
     const loadingStateRecorder = new TestLoadingStateRecorder();
     let shouldFail = true;
 
-    vi.mocked(platform.loadAsset).mockImplementation(async (spec: AssetSpec) => {
+    vi.mocked(platform.assets.load).mockImplementation(async (spec: AssetSpec) => {
       if (spec.type !== 'audio') {
         throw new Error(`unexpected asset type: ${spec.type}`);
       }
@@ -347,7 +347,7 @@ describe('SceneRouter runtime', () => {
     const loadingStateRecorder = new TestLoadingStateRecorder();
     let shouldFail = true;
 
-    vi.mocked(platform.loadAsset).mockImplementation(async (spec: AssetSpec) => {
+    vi.mocked(platform.assets.load).mockImplementation(async (spec: AssetSpec) => {
       if (shouldFail) {
         shouldFail = false;
         throw new Error('audio missing');

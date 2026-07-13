@@ -1,4 +1,4 @@
-import { Align, Color, Font, RenderableImage, Texture } from '@rutan/midorable';
+import { Align, Color, Font, RenderableImage, Texture } from '@rutan/midorable/platform';
 import { Canvas2DTextureSurface } from '../Canvas2DTextureSurface';
 
 export class CanvasBackedTexture implements Texture {

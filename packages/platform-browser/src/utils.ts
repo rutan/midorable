@@ -1,4 +1,4 @@
-import { Color, Font, MediaQuery, MediaSupportLevel } from '@rutan/midorable';
+import { Color, Font, MediaQuery, MediaSupportLevel } from '@rutan/midorable/platform';
 
 let mediaQueryCanvas: HTMLCanvasElement | null = null;
 

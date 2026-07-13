@@ -1,4 +1,4 @@
-import { FilterInstance, FilterUniformValue, ShaderFilterDefinition } from '@rutan/midorable';
+import { FilterInstance, FilterUniformValue, ShaderFilterDefinition } from '@rutan/midorable/platform';
 import { WebGpuRenderer } from './WebGpuRenderer';
 
 let globalFilterId = 0;

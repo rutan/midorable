@@ -1,7 +1,6 @@
 import { bench, describe } from 'vitest';
 import {
   App,
-  Asset,
   AssetSpec,
   AudioAsset,
   AudioBackend,
@@ -343,40 +342,46 @@ function createNoopPlatform(): Platform {
   const input = createNoopInput();
 
   return {
-    renderer,
+    host: {
+      startLoop() {},
+      stopLoop() {},
+      resize() {},
+      setCursor() {},
+    },
+    graphics: {
+      renderer,
+      capabilities: {},
+      createTexture(width: number, height: number) {
+        return createTexture(width, height);
+      },
+      async createFilter() {
+        throw new Error('Filters are not supported by the benchmark platform');
+      },
+    },
     audio,
     input,
-    filterCapabilities: null,
+    assets: {
+      async load<TSpec extends AssetSpec>(spec: TSpec): Promise<ResolvedAsset<TSpec>> {
+        switch (spec.type) {
+          case 'image':
+            return createImage(spec.src) as ResolvedAsset<TSpec>;
+          case 'audio':
+            return { id: spec.src, type: 'audio', duration: 1, source: null } as ResolvedAsset<TSpec>;
+          case 'text':
+            return { id: spec.src, type: 'text', content: '' } as ResolvedAsset<TSpec>;
+          case 'binary':
+            return { id: spec.src, type: 'binary', content: new ArrayBuffer(0) } as ResolvedAsset<TSpec>;
+        }
+      },
+      unload() {},
+      mediaQuery() {
+        return 'unknown';
+      },
+    },
     dispose() {},
-    startLoop() {},
-    stopLoop() {},
-    resize() {},
-    async loadAsset<TSpec extends AssetSpec>(spec: TSpec): Promise<ResolvedAsset<TSpec>> {
-      switch (spec.type) {
-        case 'image':
-          return createImage(spec.src) as ResolvedAsset<TSpec>;
-        case 'audio':
-          return { id: spec.src, type: 'audio', duration: 1, source: null } as ResolvedAsset<TSpec>;
-        case 'text':
-          return { id: spec.src, type: 'text', content: '' } as ResolvedAsset<TSpec>;
-        case 'binary':
-          return { id: spec.src, type: 'binary', content: new ArrayBuffer(0) } as ResolvedAsset<TSpec>;
-      }
-    },
-    unloadAsset(_asset: Asset) {},
-    mediaQuery() {
-      return 'unknown';
-    },
-    createTexture(width: number, height: number) {
-      return createTexture(width, height);
-    },
-    async createFilter() {
-      throw new Error('Filters are not supported by the benchmark platform');
-    },
     getFeature() {
       return undefined;
     },
-    setCursor() {},
   };
 }
 

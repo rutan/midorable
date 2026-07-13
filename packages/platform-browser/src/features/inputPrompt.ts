@@ -1,4 +1,4 @@
-import { SystemPromptInputFeature } from '@rutan/midorable';
+import { SystemPromptInputFeature } from '@rutan/midorable/platform';
 import { BrowserPlatformBase } from '../BrowserPlatformBase';
 
 export function registerPromptInputFeature(platform: BrowserPlatformBase) {

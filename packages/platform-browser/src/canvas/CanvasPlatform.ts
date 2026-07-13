@@ -1,4 +1,4 @@
-import { Renderer, Texture } from '@rutan/midorable';
+import { Renderer, Texture } from '@rutan/midorable/platform';
 import { BrowserPlatformBase, BrowserPlatformConfig } from '../BrowserPlatformBase';
 import { CanvasBackedTexture } from '../internal/CanvasBackedTexture';
 import { CanvasRenderer } from './CanvasRenderer';

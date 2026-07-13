@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { imageAsset, type ImageAsset } from '../../../src';
-import { App } from '../../../src/core/App';
-import { DisplayObject } from '../../../src/core/displays/DisplayObject';
+import { App } from '../../../src/engine/App';
+import { DisplayObject } from '../../../src/engine/displays/DisplayObject';
 import { createSceneRouter, type AssetsOf, type SceneRouteMap } from '../../../src/utils/scene';
 import { createMockPlatform } from '../../helpers/createMockPlatform';
 

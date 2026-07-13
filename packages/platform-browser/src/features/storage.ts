@@ -1,4 +1,4 @@
-import type { SystemStorageFeature } from '@rutan/midorable';
+import type { SystemStorageFeature } from '@rutan/midorable/platform';
 import { BrowserPlatformBase } from '../BrowserPlatformBase';
 
 export function registerStorageFeature(platform: BrowserPlatformBase, options: BrowserStorageBackendOptions = {}) {

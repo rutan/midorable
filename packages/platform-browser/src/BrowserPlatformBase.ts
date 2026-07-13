@@ -1,18 +1,19 @@
 import {
   Asset,
+  AssetsBackend,
   AssetSpec,
   FilterInstance,
+  GraphicsCapabilities,
+  GraphicsBackend,
+  HostBackend,
   LoadAssetOptions,
-  MediaQuery,
-  MediaSupportLevel,
   Platform,
   PlatformFeatureRegistry,
-  RenderFilterCapabilities,
   ResolvedAsset,
   Renderer,
   ShaderFilterDefinition,
   Texture,
-} from '@rutan/midorable';
+} from '@rutan/midorable/platform';
 import { BrowserAudioBackend } from './AudioBackend';
 import { BrowserInput } from './BrowserInput';
 import { BrowserResourceStore } from './BrowserResourceStore';
@@ -26,6 +27,12 @@ export interface BrowserPlatformConfig {
 }
 
 export abstract class BrowserPlatformBase implements Platform {
+  private static readonly EMPTY_GRAPHICS_CAPABILITIES: GraphicsCapabilities = {};
+
+  readonly host: HostBackend;
+  readonly graphics: GraphicsBackend;
+  readonly assets: AssetsBackend;
+
   private _surface: BrowserSurface | null = null;
   private _renderer: Renderer | null = null;
   private _audio: BrowserAudioBackend | null = null;
@@ -42,10 +49,36 @@ export abstract class BrowserPlatformBase implements Platform {
   constructor(config: BrowserPlatformConfig) {
     this._element = config.element;
 
+    const getRenderer = () => this.renderer;
+    const getCapabilities = () => this.capabilities;
+    this.host = {
+      startLoop: (callback) => this.startLoop(callback),
+      stopLoop: () => this.stopLoop(),
+      resize: (width, height) => this.resize(width, height),
+      setCursor: (cursor) => {
+        this._element.style.cursor = cursor;
+      },
+    };
+    this.graphics = {
+      get renderer() {
+        return getRenderer();
+      },
+      get capabilities() {
+        return getCapabilities();
+      },
+      createTexture: (width, height) => this.createTextureCore(width, height),
+      createFilter: (definition) => this.createFilter(definition),
+    };
+    this.assets = {
+      load: (spec, options) => this.loadAsset(spec, options),
+      unload: (asset) => this.unloadAsset(asset),
+      mediaQuery: (query) => mediaQuery(query),
+    };
+
     registerDefaultPlatformFeatures(this);
   }
 
-  get renderer(): Renderer {
+  protected get renderer(): Renderer {
     if (!this._renderer) {
       throw new Error('Renderer is not initialized');
     }
@@ -85,8 +118,8 @@ export abstract class BrowserPlatformBase implements Platform {
     return this._logicalSize;
   }
 
-  get filterCapabilities(): RenderFilterCapabilities | null {
-    return null;
+  protected get capabilities(): GraphicsCapabilities {
+    return BrowserPlatformBase.EMPTY_GRAPHICS_CAPABILITIES;
   }
 
   async init() {
@@ -114,7 +147,7 @@ export abstract class BrowserPlatformBase implements Platform {
   }
 
   dispose() {
-    this.stopLoop();
+    this.host.stopLoop();
 
     for (const dispose of this._disposeFunctions) {
       try {
@@ -142,7 +175,7 @@ export abstract class BrowserPlatformBase implements Platform {
     this.clearFeatures();
   }
 
-  startLoop(callback: (now: number) => void) {
+  private startLoop(callback: (now: number) => void) {
     this._loopCallback = callback;
     if (this._rafId !== null) {
       return;
@@ -160,7 +193,7 @@ export abstract class BrowserPlatformBase implements Platform {
     this._rafId = requestAnimationFrame(tick);
   }
 
-  stopLoop() {
+  private stopLoop() {
     this._loopCallback = null;
     if (this._rafId !== null) {
       cancelAnimationFrame(this._rafId);
@@ -168,7 +201,7 @@ export abstract class BrowserPlatformBase implements Platform {
     }
   }
 
-  resize(width: number, height: number) {
+  private resize(width: number, height: number) {
     this._logicalSize = { width, height };
     if (!this._surface || !this._renderer) {
       return;
@@ -176,7 +209,10 @@ export abstract class BrowserPlatformBase implements Platform {
     this.applyLogicalSize(width, height);
   }
 
-  async loadAsset<TSpec extends AssetSpec>(spec: TSpec, options?: LoadAssetOptions): Promise<ResolvedAsset<TSpec>> {
+  private async loadAsset<TSpec extends AssetSpec>(
+    spec: TSpec,
+    options?: LoadAssetOptions,
+  ): Promise<ResolvedAsset<TSpec>> {
     switch (spec.type) {
       case 'image':
         return this._resources.loadImage(spec.src, options?.signal) as Promise<ResolvedAsset<TSpec>>;
@@ -196,7 +232,7 @@ export abstract class BrowserPlatformBase implements Platform {
     }
   }
 
-  unloadAsset(asset: Asset) {
+  private unloadAsset(asset: Asset) {
     const released = this._resources.unload(asset);
     if (released) {
       this.onUnloadAsset(asset);
@@ -207,19 +243,7 @@ export abstract class BrowserPlatformBase implements Platform {
     return this._features[key] as PlatformFeatureRegistry[K] | undefined;
   }
 
-  setCursor(cursor: string | null) {
-    this._element.style.cursor = cursor ?? 'default';
-  }
-
-  mediaQuery(query: MediaQuery): MediaSupportLevel {
-    return mediaQuery(query);
-  }
-
-  createTexture(width: number, height: number): Texture {
-    return this.createTextureCore(width, height);
-  }
-
-  async createFilter(_definition: ShaderFilterDefinition): Promise<FilterInstance> {
+  protected async createFilter(_definition: ShaderFilterDefinition): Promise<FilterInstance> {
     throw new Error('Shader filters are not supported on this platform');
   }
 

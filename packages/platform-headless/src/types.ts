@@ -8,7 +8,7 @@ import {
   RenderableImage,
   DrawTexturedTrianglesParams,
   TextAsset,
-} from '@rutan/midorable';
+} from '@rutan/midorable/platform';
 
 export type HeadlessDrawCommand =
   | { type: 'clear'; color: { r: number; g: number; b: number; a: number } }
@@ -56,7 +56,7 @@ export interface HeadlessPlatformFeatureRegistry {
   };
 }
 
-declare module '@rutan/midorable' {
+declare module '@rutan/midorable/platform' {
   interface PlatformFeatureRegistry extends HeadlessPlatformFeatureRegistry {}
 }
 

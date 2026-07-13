@@ -7,7 +7,7 @@ import {
   RenderableImage,
   Renderer,
   RendererMeshFeature,
-} from '@rutan/midorable';
+} from '@rutan/midorable/platform';
 import { HeadlessDrawCommand } from './types';
 
 export class HeadlessRenderer implements Renderer, RendererMeshFeature {

@@ -1,4 +1,4 @@
-import { Asset, AudioAsset, BinaryAsset, ImageAsset, TextAsset } from '@rutan/midorable';
+import { Asset, AudioAsset, BinaryAsset, ImageAsset, TextAsset } from '@rutan/midorable/platform';
 import { HeadlessLoadedAssetSet, HeadlessResourceConfig } from './types';
 
 export class HeadlessResourceStore {

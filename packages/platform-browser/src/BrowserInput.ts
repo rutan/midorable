@@ -8,7 +8,7 @@ import {
   InputTouchSnapshot,
   PointerButtonId,
   PointerKind,
-} from '@rutan/midorable';
+} from '@rutan/midorable/platform';
 import { Viewport } from './types';
 
 interface PointerInternalState {
