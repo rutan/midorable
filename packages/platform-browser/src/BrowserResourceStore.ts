@@ -1,4 +1,4 @@
-import { Asset, AudioAsset, BinaryAsset, ImageAsset, TextAsset } from '@rutan/midorable';
+import { Asset, AudioAsset, BinaryAsset, ImageAsset, TextAsset } from '@rutan/midorable/platform';
 
 type LoadAudio = (url: string, signal?: AbortSignal) => Promise<AudioAsset>;
 

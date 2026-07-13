@@ -1,4 +1,4 @@
-import { AppContext } from '../../src/core/App';
+import { AppContext } from '../../src/engine/AppContext';
 
 export function createTestContext(): AppContext {
   return {

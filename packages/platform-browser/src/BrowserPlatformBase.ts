@@ -12,7 +12,7 @@ import {
   Renderer,
   ShaderFilterDefinition,
   Texture,
-} from '@rutan/midorable';
+} from '@rutan/midorable/platform';
 import { BrowserAudioBackend } from './AudioBackend';
 import { BrowserInput } from './BrowserInput';
 import { BrowserResourceStore } from './BrowserResourceStore';

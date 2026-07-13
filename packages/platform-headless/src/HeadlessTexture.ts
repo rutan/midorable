@@ -1,4 +1,4 @@
-import { Align, Color, Font, RenderableImage, Size, Texture } from '@rutan/midorable';
+import { Align, Color, Font, RenderableImage, Size, Texture } from '@rutan/midorable/platform';
 import { HeadlessTextureCommand } from './types';
 
 export class HeadlessTexture implements Texture {

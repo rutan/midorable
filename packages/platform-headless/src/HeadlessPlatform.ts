@@ -13,7 +13,7 @@ import {
   ShaderFilterDefinition,
   FilterInstance,
   Texture,
-} from '@rutan/midorable';
+} from '@rutan/midorable/platform';
 import { HeadlessAudioBackend } from './HeadlessAudioBackend';
 import { HeadlessInput } from './HeadlessInput';
 import { HeadlessRenderer } from './HeadlessRenderer';

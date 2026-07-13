@@ -5,7 +5,7 @@ import {
   Renderer,
   ShaderFilterDefinition,
   Texture,
-} from '@rutan/midorable';
+} from '@rutan/midorable/platform';
 import { BrowserPlatformBase, BrowserPlatformConfig } from '../BrowserPlatformBase';
 import { CanvasBackedTexture } from '../internal/CanvasBackedTexture';
 import { WebGlRenderer } from './WebGlRenderer';

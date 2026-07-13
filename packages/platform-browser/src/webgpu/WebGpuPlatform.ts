@@ -6,7 +6,7 @@ import {
   Renderer,
   ShaderFilterDefinition,
   Texture,
-} from '@rutan/midorable';
+} from '@rutan/midorable/platform';
 import { BrowserPlatformBase, BrowserPlatformConfig } from '../BrowserPlatformBase';
 import { WebGpuRenderer } from './WebGpuRenderer';
 import { WebGpuTexture } from './WebGpuTexture';

@@ -1,4 +1,4 @@
-import { AudioAsset, AudioBackend, AudioInstance, PlaybackUpdateOptions, PlayOptions } from '@rutan/midorable';
+import { AudioAsset, AudioBackend, AudioInstance, PlaybackUpdateOptions, PlayOptions } from '@rutan/midorable/platform';
 
 export class HeadlessAudioBackend implements AudioBackend {
   private _nextId = 1;

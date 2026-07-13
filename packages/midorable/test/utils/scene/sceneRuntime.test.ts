@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { imageAsset, type AssetSpec } from '../../../src';
-import { App } from '../../../src/core/App';
-import type { AppContext } from '../../../src/core/App';
-import { DisplayObject, type DisplayObjectProps } from '../../../src/core/displays/DisplayObject';
+import { App } from '../../../src/engine/App';
+import type { AppContext } from '../../../src/engine/AppContext';
+import { DisplayObject, type DisplayObjectProps } from '../../../src/engine/displays/DisplayObject';
 import {
   createSceneRouter,
   SceneAssetLoadingError,

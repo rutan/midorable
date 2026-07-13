@@ -1,4 +1,4 @@
-import { AudioAsset, AudioBackend, AudioInstance, PlaybackUpdateOptions, PlayOptions } from '@rutan/midorable';
+import { AudioAsset, AudioBackend, AudioInstance, PlaybackUpdateOptions, PlayOptions } from '@rutan/midorable/platform';
 
 interface AudioInstancePayload {
   source: AudioBufferSourceNode;

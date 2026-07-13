@@ -14,7 +14,7 @@ import {
   ResolvedAsset,
   TextAsset,
   Texture,
-} from '../../src/core';
+} from '../../src';
 
 export function createImageAsset(id: string, width = 64, height = 64): ImageAsset {
   return {

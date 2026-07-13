@@ -1,4 +1,4 @@
-import { Align, Color, Font, RenderableImage, Texture } from '@rutan/midorable';
+import { Align, Color, Font, RenderableImage, Texture } from '@rutan/midorable/platform';
 import { Canvas2DTextureSurface, resolveCanvasImageSourceDefault } from '../Canvas2DTextureSurface';
 import { GPU_TEXTURE_USAGE } from './WebGpuUsage';
 

@@ -1,4 +1,4 @@
-import { type DisplayObjectProps, DisplayObject } from '../../core';
+import { type DisplayObjectProps, DisplayObject } from '../../engine';
 import type { ResolvedSceneAssets, SceneAssetMap, SceneAssetsDefinition } from './assets';
 import type { SceneNavigator } from './navigator';
 import type { SceneRouteMap } from './types';

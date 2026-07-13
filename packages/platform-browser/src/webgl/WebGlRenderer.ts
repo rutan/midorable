@@ -8,7 +8,7 @@ import {
   RendererMeshFeature,
   RenderState,
   ShaderFilterDefinition,
-} from '@rutan/midorable';
+} from '@rutan/midorable/platform';
 import { CanvasBackedTexture } from '../internal/CanvasBackedTexture';
 import { clamp01, clamp255 } from '../internal/utilities';
 import { WebGlFilterInstance } from './WebGlFilterInstance';

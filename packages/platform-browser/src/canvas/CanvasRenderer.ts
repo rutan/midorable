@@ -1,4 +1,4 @@
-import { Color, FilterInstance, Rectangle, RenderableImage, Renderer, RenderState } from '@rutan/midorable';
+import { Color, FilterInstance, Rectangle, RenderableImage, Renderer, RenderState } from '@rutan/midorable/platform';
 import { clamp01, clamp255 } from '../internal/utilities';
 import { colorToCss } from '../utils';
 

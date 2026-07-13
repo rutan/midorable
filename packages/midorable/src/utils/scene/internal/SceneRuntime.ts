@@ -1,4 +1,4 @@
-import { type AppContext, createEventHandlers, DisplayObject, Loader } from '../../../core';
+import { type AppContext, createEventHandlers, DisplayObject, Loader } from '../../../engine';
 import type { SceneCreateResult, SceneDefinitions, SceneView } from '../definition';
 import { SceneAssetLoadingError } from '../errors';
 import type { SceneNavigator } from '../navigator';

@@ -1,4 +1,4 @@
-import type { AssetSpec, AudioAsset, BinaryAsset, ImageAsset, TextAsset } from '../../core';
+import type { AssetSpec, AudioAsset, BinaryAsset, ImageAsset, TextAsset } from '../../platform';
 import type { SceneAssetsContext, SceneRouteMap } from './types';
 
 /**

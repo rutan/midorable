@@ -1,4 +1,4 @@
-import { Align, Color, Font, RenderableImage } from '@rutan/midorable';
+import { Align, Color, Font, RenderableImage } from '@rutan/midorable/platform';
 import { colorToCss, fontToCss } from './utils';
 
 type SourceImage = HTMLImageElement | HTMLCanvasElement;
