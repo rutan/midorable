@@ -1,5 +1,3 @@
-import { RendererMeshFeature } from './renderer';
-
 /**
  * 共通で実装されることを推奨する『半公式』機能群
  *
@@ -8,11 +6,6 @@ import { RendererMeshFeature } from './renderer';
  * プラットフォームは、これらの機能の一部または全部をサポートしなくても良い。
  */
 export interface StandardPlatformFeatureRegistry {
-  /**
-   * テクスチャ付き三角形メッシュ描画機能。
-   */
-  'renderer.mesh': RendererMeshFeature;
-
   /**
    * フォント機能
    */

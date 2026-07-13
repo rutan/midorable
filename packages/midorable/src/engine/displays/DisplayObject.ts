@@ -1,4 +1,4 @@
-import { FilterInstance, RenderState, Renderer, Transform2D } from '../../platform';
+import { FilterInstance, RenderCommandEncoder, RenderState, Transform2D } from '../../platform';
 import { BlendMode, Color, CursorName, Rectangle } from '../../platform';
 import { AppContext } from '../AppContext';
 import { createEventHandlers } from '../events';
@@ -527,14 +527,14 @@ export class DisplayObject {
    * 通常、アプリケーション開発者がこのメソッドを直接呼び出すことはない。
    * 画面描画処理時に自動的に呼び出される。
    *
-   * @param renderer - レンダラー
+   * @param encoder - 描画コマンドエンコーダー
    * @param parentState - 親の描画状態
    */
-  render(renderer: Renderer, parentState?: RenderState) {
-    this.renderInternal(renderer, parentState, false);
+  render(encoder: RenderCommandEncoder, parentState?: RenderState) {
+    this.renderInternal(encoder, parentState, false);
   }
 
-  private renderInternal(renderer: Renderer, parentState?: RenderState, asMask = false) {
+  private renderInternal(encoder: RenderCommandEncoder, parentState?: RenderState, asMask = false) {
     if (!asMask && this._maskRefCount > 0) {
       return;
     }
@@ -550,21 +550,24 @@ export class DisplayObject {
     const blendMode = this._blendMode ?? parentState?.blendMode ?? 'normal';
     const colorTone = composeColorTone(parentState?.colorTone ?? IDENTITY_TONE, this._colorTone);
     const state: RenderState = { transform: worldTransform, alpha, blendMode, colorTone, smooth: this._smooth };
-    const hasFilterLayer = this._filters.length > 0 && renderer.pushFilters(this._filters, state);
-    if (this._mask) {
-      renderer.pushMask();
+    const hasFilterLayer = this._filters.length > 0;
+    if (hasFilterLayer) {
+      encoder.pushFilters(this._filters, state);
     }
-    this.renderSelf(renderer, state);
+    if (this._mask) {
+      encoder.pushMask();
+    }
+    this.renderSelf(encoder, state);
     for (const child of this._children) {
-      child.render(renderer, state);
+      child.render(encoder, state);
     }
     if (this._mask) {
-      renderer.activateMask();
-      this._mask.renderInternal(renderer, this.createMaskParentState(worldTransform), true);
-      renderer.popMask();
+      encoder.activateMask();
+      this._mask.renderInternal(encoder, this.createMaskParentState(worldTransform), true);
+      encoder.popMask();
     }
     if (hasFilterLayer) {
-      renderer.popFilters();
+      encoder.popFilters();
     }
   }
 
@@ -722,10 +725,10 @@ export class DisplayObject {
    * render メソッド内で呼び出される。
    * 継承先のクラスはこのメソッドをオーバーライドして、表示オブジェクト自身の描画処理を実装する。
    *
-   * @param _renderer - レンダラー
+   * @param _encoder - 描画コマンドエンコーダー
    * @param _state - 描画状態
    */
-  protected renderSelf(_renderer: Renderer, _state: RenderState) {}
+  protected renderSelf(_encoder: RenderCommandEncoder, _state: RenderState) {}
 
   /**
    * 指定した座標が表示オブジェクトの範囲内にあるかどうかを判定する

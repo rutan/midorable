@@ -62,12 +62,9 @@ export class HeadlessPlatform implements Platform {
     };
     this.graphics = {
       renderer,
-      capabilities: {},
+      capabilities: { mesh: {} },
       createTexture: (width, height) =>
         new HeadlessTexture(width, height, { recording: this._rendererMode === 'record' }),
-      createFilter: async (_definition) => {
-        throw new Error('Shader filters are not supported on headless platform');
-      },
     };
     this.assets = {
       load: (spec, options) => this.loadAsset(spec, options),
@@ -75,7 +72,6 @@ export class HeadlessPlatform implements Platform {
       mediaQuery: (query) => this.mediaQuery(query),
     };
     this.setFeature('headless', { rendererMode: this._rendererMode });
-    this.setFeature('renderer.mesh', renderer);
     this.setFeature('system.locale', {
       getLocale() {
         return resolveLocale();

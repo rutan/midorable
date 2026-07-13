@@ -1,26 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { Sprite } from '../../../src/engine/displays/Sprite';
-import { Renderer, RenderState } from '../../../src/platform/renderer';
+import { RenderCommandEncoder, RenderState } from '../../../src/platform/renderer';
 import { createMockTexture } from '../../helpers/createMockPlatform';
 import { createTestContext } from '../../helpers/createTestContext';
 
 function createRendererSpy() {
   const states: RenderState[] = [];
-  const renderer: Renderer = {
-    beginFrame() {},
-    endFrame() {},
-    clear() {},
+  const renderer: RenderCommandEncoder = {
     drawSprite(_image, state) {
       states.push(state);
     },
-    pushFilters() {
-      return false;
-    },
+    drawTexturedTriangles() {},
+    pushFilters() {},
     popFilters() {},
     pushMask() {},
     activateMask() {},
     popMask() {},
-    resize() {},
   };
   return { renderer, states };
 }

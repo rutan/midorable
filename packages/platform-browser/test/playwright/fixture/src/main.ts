@@ -1,4 +1,11 @@
-import { type FilterInstance, type RenderState, type ShaderFilterDefinition, type Texture } from '@rutan/midorable';
+import {
+  DefaultRenderCommandEncoder,
+  FilterInstance,
+  type RenderCommandEncoder,
+  type RenderState,
+  type ShaderFilterDefinition,
+  type Texture,
+} from '@rutan/midorable';
 import { createWebGlPlatform } from '../../../../src';
 import type { BrowserPlatformBase } from '../../../../src/BrowserPlatformBase';
 import { createCanvasPlatform } from '../../../../src/canvas';
@@ -17,13 +24,32 @@ interface BrowserBenchmarkResult {
   kind: PlatformKind;
   frames: number;
   iterations: number;
+  encode: BenchmarkTiming;
+  submit: BenchmarkTiming;
+  total: BenchmarkTiming;
+  meanCommandCount: number;
+  meanSpriteBatchCount: number;
+  meanInstanceCount: number;
+}
+
+interface BenchmarkTiming {
   meanMs: number;
   p95Ms: number;
   maxMs: number;
 }
 
+interface FrameMeasurement {
+  encodeMs: number;
+  submitMs: number;
+  totalMs: number;
+  commandCount: number;
+  spriteBatchCount: number;
+  instanceCount: number;
+}
+
 let activePlatform: BrowserPlatformBase | null = null;
 let activeDisposables: Array<FilterInstance | Texture> = [];
+const renderEncoders = new WeakMap<BrowserPlatformBase, DefaultRenderCommandEncoder>();
 
 const identityState: RenderState = {
   transform: { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 },
@@ -70,16 +96,55 @@ function drawSolidTexture(platform: BrowserPlatformBase, width: number, height: 
   return texture;
 }
 
+function renderFrame(
+  platform: BrowserPlatformBase,
+  clearColor: { r: number; g: number; b: number; a: number },
+  draw: (encoder: RenderCommandEncoder) => void,
+): FrameMeasurement {
+  let encoder = renderEncoders.get(platform);
+  if (!encoder) {
+    encoder = new DefaultRenderCommandEncoder({ meshSupported: platform.graphics.capabilities.mesh !== undefined });
+    renderEncoders.set(platform, encoder);
+  }
+  const startedAt = performance.now();
+  encoder.reset(clearColor);
+  draw(encoder);
+  const frame = encoder.finish();
+  const encodedAt = performance.now();
+  platform.graphics.renderer.submitFrame(frame);
+  const submittedAt = performance.now();
+  let spriteBatchCount = 0;
+  let instanceCount = 0;
+  for (const command of frame.commands) {
+    if (command.type === 'spriteBatch') {
+      spriteBatchCount += 1;
+      instanceCount += command.instanceCount;
+    }
+  }
+  return {
+    encodeMs: encodedAt - startedAt,
+    submitMs: submittedAt - encodedAt,
+    totalMs: submittedAt - startedAt,
+    commandCount: frame.commands.length,
+    spriteBatchCount,
+    instanceCount,
+  };
+}
+
+async function createFilter(platform: BrowserPlatformBase, definition: ShaderFilterDefinition) {
+  const resource = await platform.graphics.createFilterResource!(definition);
+  return new FilterInstance(definition, resource);
+}
+
 async function runSpriteSmoke(kind: PlatformKind): Promise<SmokeResult> {
   const platform = await createPlatform(kind);
   activePlatform = platform;
   platform.host.resize(64, 64);
   const texture = drawSolidTexture(platform, 16, 16, '#00ff00');
 
-  platform.graphics.renderer.beginFrame();
-  platform.graphics.renderer.clear({ r: 255, g: 0, b: 0, a: 1 });
-  platform.graphics.renderer.drawSprite(texture, translatedState(8, 8));
-  platform.graphics.renderer.endFrame();
+  renderFrame(platform, { r: 255, g: 0, b: 0, a: 1 }, (encoder) => {
+    encoder.drawSprite(texture, translatedState(8, 8));
+  });
 
   await nextPaint();
   const canvasAttached = platform.canvas.parentElement === platform.element;
@@ -93,14 +158,13 @@ async function runMaskSmoke(kind: PlatformKind): Promise<SmokeResult> {
   const content = drawSolidTexture(platform, 48, 48, '#00ff00');
   const mask = drawSolidTexture(platform, 16, 16, '#ffffff');
 
-  platform.graphics.renderer.beginFrame();
-  platform.graphics.renderer.clear({ r: 0, g: 0, b: 0, a: 1 });
-  platform.graphics.renderer.pushMask();
-  platform.graphics.renderer.drawSprite(content, translatedState(8, 8));
-  platform.graphics.renderer.activateMask();
-  platform.graphics.renderer.drawSprite(mask, translatedState(24, 24));
-  platform.graphics.renderer.popMask();
-  platform.graphics.renderer.endFrame();
+  renderFrame(platform, { r: 0, g: 0, b: 0, a: 1 }, (encoder) => {
+    encoder.pushMask();
+    encoder.drawSprite(content, translatedState(8, 8));
+    encoder.activateMask();
+    encoder.drawSprite(mask, translatedState(24, 24));
+    encoder.popMask();
+  });
 
   await nextPaint();
   const canvasAttached = platform.canvas.parentElement === platform.element;
@@ -112,16 +176,14 @@ async function runFilterSmoke(kind: PlatformKind): Promise<SmokeResult> {
   activePlatform = platform;
   platform.host.resize(64, 64);
   const texture = drawSolidTexture(platform, 16, 16, '#00ff00');
-  const filter = await platform.graphics.createFilter!(createRedFilterDefinition(kind));
+  const filter = await createFilter(platform, createRedFilterDefinition(kind));
   activeDisposables.push(filter);
 
-  platform.graphics.renderer.beginFrame();
-  platform.graphics.renderer.clear({ r: 0, g: 0, b: 0, a: 1 });
-  if (platform.graphics.renderer.pushFilters([filter], translatedState(8, 8))) {
-    platform.graphics.renderer.drawSprite(texture, translatedState(8, 8));
-    platform.graphics.renderer.popFilters();
-  }
-  platform.graphics.renderer.endFrame();
+  renderFrame(platform, { r: 0, g: 0, b: 0, a: 1 }, (encoder) => {
+    encoder.pushFilters([filter], translatedState(8, 8));
+    encoder.drawSprite(texture, translatedState(8, 8));
+    encoder.popFilters();
+  });
 
   await nextPaint();
   const canvasAttached = platform.canvas.parentElement === platform.element;
@@ -133,21 +195,18 @@ async function runMeshSmoke(kind: PlatformKind): Promise<SmokeResult> {
   activePlatform = platform;
   platform.host.resize(64, 64);
   const texture = drawSolidTexture(platform, 16, 16, '#00ff00');
-  const mesh = platform.getFeature('renderer.mesh');
-  if (!mesh) {
-    throw new Error('renderer.mesh is not supported');
+  if (!platform.graphics.capabilities.mesh) {
+    throw new Error('mesh rendering is not supported');
   }
-
-  platform.graphics.renderer.beginFrame();
-  platform.graphics.renderer.clear({ r: 255, g: 0, b: 0, a: 1 });
-  mesh.drawTexturedTriangles({
-    image: texture,
-    state: identityState,
-    positions: [8, 8, 56, 8, 8, 56],
-    uvs: [0, 0, 1, 0, 0, 1],
-    indices: [0, 1, 2],
+  renderFrame(platform, { r: 255, g: 0, b: 0, a: 1 }, (encoder) => {
+    encoder.drawTexturedTriangles({
+      image: texture,
+      state: identityState,
+      positions: [8, 8, 56, 8, 8, 56],
+      uvs: [0, 0, 1, 0, 0, 1],
+      indices: [0, 1, 2],
+    });
   });
-  platform.graphics.renderer.endFrame();
 
   await nextPaint();
   const canvasAttached = platform.canvas.parentElement === platform.element;
@@ -166,25 +225,25 @@ async function runDisposeSmoke(kind: PlatformKind): Promise<SmokeResult> {
 }
 
 async function runSpriteBenchmark(kind: PlatformKind): Promise<BrowserBenchmarkResult> {
-  return runRendererBenchmark(kind, 'sprites', 400, (platform, texture, frame, size, count) => {
+  return runRendererBenchmark(kind, 'sprites', 400, (encoder, texture, frame, size, count) => {
     for (let index = 0; index < count; index += 1) {
       const x = (index * 13 + frame) % size;
       const y = (index * 17 + frame * 2) % size;
-      platform.graphics.renderer.drawSprite(texture, translatedState(x, y));
+      encoder.drawSprite(texture, translatedState(x, y));
     }
   });
 }
 
 async function runMaskBenchmark(kind: PlatformKind): Promise<BrowserBenchmarkResult> {
-  return runRendererBenchmark(kind, 'mask', 120, (platform, texture, frame, size, count) => {
+  return runRendererBenchmark(kind, 'mask', 120, (encoder, texture, frame, size, count) => {
     for (let index = 0; index < count; index += 1) {
       const x = (index * 13 + frame) % size;
       const y = (index * 17 + frame * 2) % size;
-      platform.graphics.renderer.pushMask();
-      platform.graphics.renderer.drawSprite(texture, transformedState(x, y, 2, 2));
-      platform.graphics.renderer.activateMask();
-      platform.graphics.renderer.drawSprite(texture, translatedState(x + 4, y + 4));
-      platform.graphics.renderer.popMask();
+      encoder.pushMask();
+      encoder.drawSprite(texture, transformedState(x, y, 2, 2));
+      encoder.activateMask();
+      encoder.drawSprite(texture, translatedState(x + 4, y + 4));
+      encoder.popMask();
     }
   });
 }
@@ -194,17 +253,16 @@ async function runFilterBenchmark(kind: PlatformKind): Promise<BrowserBenchmarkR
     kind,
     'filter',
     80,
-    (platform, texture, frame, size, count, filter) => {
+    (encoder, texture, frame, size, count, filter) => {
       if (!filter) {
         throw new Error('filter benchmark requires a filter');
       }
       for (let index = 0; index < count; index += 1) {
         const x = (index * 19 + frame) % size;
         const y = (index * 23 + frame * 2) % size;
-        if (platform.graphics.renderer.pushFilters([filter], translatedState(x, y))) {
-          platform.graphics.renderer.drawSprite(texture, translatedState(x, y));
-          platform.graphics.renderer.popFilters();
-        }
+        encoder.pushFilters([filter], translatedState(x, y));
+        encoder.drawSprite(texture, translatedState(x, y));
+        encoder.popFilters();
       }
     },
     { createFilter: true },
@@ -223,27 +281,23 @@ async function runNinePatchBenchmark(kind: PlatformKind): Promise<BrowserBenchma
     { x: 8, y: 24, width: 16, height: 8 },
     { x: 24, y: 24, width: 8, height: 8 },
   ];
-  return runRendererBenchmark(kind, 'nine-patch', 80, (platform, texture, frame, size, count) => {
+  return runRendererBenchmark(kind, 'nine-patch', 80, (encoder, texture, frame, size, count) => {
     for (let index = 0; index < count; index += 1) {
       const x = (index * 17 + frame) % size;
       const y = (index * 11 + frame * 2) % size;
       const width = 48 + (index % 4) * 8;
       const height = 32 + (index % 3) * 8;
-      drawNinePatch(platform, texture, frames, x, y, width, height);
+      drawNinePatch(encoder, texture, frames, x, y, width, height);
     }
   });
 }
 
 async function runMeshBenchmark(kind: PlatformKind): Promise<BrowserBenchmarkResult> {
-  return runRendererBenchmark(kind, 'mesh', 200, (platform, texture, frame, size, count) => {
-    const mesh = platform.getFeature('renderer.mesh');
-    if (!mesh) {
-      throw new Error('renderer.mesh is not supported');
-    }
+  return runRendererBenchmark(kind, 'mesh', 200, (encoder, texture, frame, size, count) => {
     for (let index = 0; index < count; index += 1) {
       const x = (index * 13 + frame) % size;
       const y = (index * 17 + frame * 2) % size;
-      mesh.drawTexturedTriangles({
+      encoder.drawTexturedTriangles({
         image: texture,
         state: identityState,
         positions: [x, y, x + 16, y, x, y + 16],
@@ -259,7 +313,7 @@ async function runRendererBenchmark(
   name: BenchmarkName,
   iterations: number,
   draw: (
-    platform: BrowserPlatformBase,
+    encoder: RenderCommandEncoder,
     texture: Texture,
     frame: number,
     size: number,
@@ -275,24 +329,29 @@ async function runRendererBenchmark(
   activePlatform = platform;
   platform.host.resize(size, size);
   const texture = drawSolidTexture(platform, 32, 32, '#00ff00');
-  const filter = options.createFilter
-    ? await platform.graphics.createFilter!(createRedFilterDefinition(kind))
-    : undefined;
+  const filter = options.createFilter ? await createFilter(platform, createRedFilterDefinition(kind)) : undefined;
   if (filter) {
     activeDisposables.push(filter);
   }
-  const durations: number[] = [];
+  const encodeDurations: number[] = [];
+  const submitDurations: number[] = [];
+  const totalDurations: number[] = [];
+  const commandCounts: number[] = [];
+  const spriteBatchCounts: number[] = [];
+  const instanceCounts: number[] = [];
 
   for (let frame = 0; frame < warmupFrames + frames; frame += 1) {
     await nextAnimationFrame();
-    const startedAt = performance.now();
-    platform.graphics.renderer.beginFrame();
-    platform.graphics.renderer.clear({ r: 0, g: 0, b: 0, a: 1 });
-    draw(platform, texture, frame, size, iterations, filter);
-    platform.graphics.renderer.endFrame();
-    const duration = performance.now() - startedAt;
+    const measurement = renderFrame(platform, { r: 0, g: 0, b: 0, a: 1 }, (encoder) => {
+      draw(encoder, texture, frame, size, iterations, filter);
+    });
     if (frame >= warmupFrames) {
-      durations.push(duration);
+      encodeDurations.push(measurement.encodeMs);
+      submitDurations.push(measurement.submitMs);
+      totalDurations.push(measurement.totalMs);
+      commandCounts.push(measurement.commandCount);
+      spriteBatchCounts.push(measurement.spriteBatchCount);
+      instanceCounts.push(measurement.instanceCount);
     }
   }
 
@@ -302,14 +361,17 @@ async function runRendererBenchmark(
     kind,
     frames,
     iterations,
-    meanMs: mean(durations),
-    p95Ms: percentile(durations, 0.95),
-    maxMs: Math.max(...durations),
+    encode: summarizeTiming(encodeDurations),
+    submit: summarizeTiming(submitDurations),
+    total: summarizeTiming(totalDurations),
+    meanCommandCount: mean(commandCounts),
+    meanSpriteBatchCount: mean(spriteBatchCounts),
+    meanInstanceCount: mean(instanceCounts),
   };
 }
 
 function drawNinePatch(
-  platform: BrowserPlatformBase,
+  encoder: RenderCommandEncoder,
   texture: Texture,
   frames: Array<{ x: number; y: number; width: number; height: number }>,
   x: number,
@@ -332,11 +394,7 @@ function drawNinePatch(
   for (let index = 0; index < frames.length; index += 1) {
     const frame = frames[index]!;
     const [dx, dy, dw, dh] = dst[index]!;
-    platform.graphics.renderer.drawSprite(
-      texture,
-      transformedState(dx, dy, dw / frame.width, dh / frame.height),
-      frame,
-    );
+    encoder.drawSprite(texture, transformedState(dx, dy, dw / frame.width, dh / frame.height), frame);
   }
 }
 
@@ -387,6 +445,14 @@ function percentile(values: number[], percentileValue: number) {
   const sorted = [...values].sort((a, b) => a - b);
   const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * percentileValue) - 1));
   return sorted[index] ?? 0;
+}
+
+function summarizeTiming(values: number[]): BenchmarkTiming {
+  return {
+    meanMs: mean(values),
+    p95Ms: percentile(values, 0.95),
+    maxMs: Math.max(...values),
+  };
 }
 
 async function supports(kind: PlatformKind): Promise<boolean> {

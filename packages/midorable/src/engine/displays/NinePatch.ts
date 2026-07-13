@@ -1,4 +1,4 @@
-import { RenderState, RenderableImage, Renderer, Transform2D } from '../../platform';
+import { RenderCommandEncoder, RenderState, RenderableImage, Transform2D } from '../../platform';
 import { Rectangle } from '../../platform';
 import { clamp, multiplyTransform } from '../internal';
 import { DisplayObject, DisplayObjectProps } from './DisplayObject';
@@ -141,10 +141,10 @@ export class NinePatch extends DisplayObject {
 
   /**
    * 表示オブジェクト自身を描画する
-   * @param renderer - レンダラー
+   * @param encoder - 描画コマンドエンコーダー
    * @param state - 描画状態
    */
-  protected renderSelf(renderer: Renderer, state: RenderState) {
+  protected renderSelf(encoder: RenderCommandEncoder, state: RenderState) {
     const texW = this._image.width;
     const texH = this._image.height;
     if (texW <= 0 || texH <= 0) {
@@ -182,7 +182,7 @@ export class NinePatch extends DisplayObject {
 
     // Corners
     drawStretched(
-      renderer,
+      encoder,
       state,
       this._image,
       { x: srcX0, y: srcY0, width: srcX1 - srcX0, height: srcY1 - srcY0 },
@@ -192,7 +192,7 @@ export class NinePatch extends DisplayObject {
       dstY1 - dstY0,
     );
     drawStretched(
-      renderer,
+      encoder,
       state,
       this._image,
       { x: srcX2, y: srcY0, width: srcX3 - srcX2, height: srcY1 - srcY0 },
@@ -202,7 +202,7 @@ export class NinePatch extends DisplayObject {
       dstY1 - dstY0,
     );
     drawStretched(
-      renderer,
+      encoder,
       state,
       this._image,
       { x: srcX0, y: srcY2, width: srcX1 - srcX0, height: srcY3 - srcY2 },
@@ -212,7 +212,7 @@ export class NinePatch extends DisplayObject {
       dstY3 - dstY2,
     );
     drawStretched(
-      renderer,
+      encoder,
       state,
       this._image,
       { x: srcX2, y: srcY2, width: srcX3 - srcX2, height: srcY3 - srcY2 },
@@ -224,7 +224,7 @@ export class NinePatch extends DisplayObject {
 
     // Edges
     drawStretched(
-      renderer,
+      encoder,
       state,
       this._image,
       { x: srcX1, y: srcY0, width: srcX2 - srcX1, height: srcY1 - srcY0 },
@@ -234,7 +234,7 @@ export class NinePatch extends DisplayObject {
       dstY1 - dstY0,
     );
     drawStretched(
-      renderer,
+      encoder,
       state,
       this._image,
       { x: srcX1, y: srcY2, width: srcX2 - srcX1, height: srcY3 - srcY2 },
@@ -244,7 +244,7 @@ export class NinePatch extends DisplayObject {
       dstY3 - dstY2,
     );
     drawStretched(
-      renderer,
+      encoder,
       state,
       this._image,
       { x: srcX0, y: srcY1, width: srcX1 - srcX0, height: srcY2 - srcY1 },
@@ -254,7 +254,7 @@ export class NinePatch extends DisplayObject {
       dstY2 - dstY1,
     );
     drawStretched(
-      renderer,
+      encoder,
       state,
       this._image,
       { x: srcX2, y: srcY1, width: srcX3 - srcX2, height: srcY2 - srcY1 },
@@ -266,7 +266,7 @@ export class NinePatch extends DisplayObject {
 
     // Center
     drawStretched(
-      renderer,
+      encoder,
       state,
       this._image,
       { x: srcX1, y: srcY1, width: srcX2 - srcX1, height: srcY2 - srcY1 },
@@ -300,7 +300,7 @@ export class NinePatch extends DisplayObject {
 }
 
 function drawStretched(
-  renderer: Renderer,
+  encoder: RenderCommandEncoder,
   state: RenderState,
   image: RenderableImage,
   frame: Rectangle,
@@ -315,7 +315,7 @@ function drawStretched(
   const scaleX = width / frame.width;
   const scaleY = height / frame.height;
   const transform = createTransform(x, y, scaleX, scaleY);
-  renderer.drawSprite(image, withTransform(state, transform), frame);
+  encoder.drawSprite(image, withTransform(state, transform), frame);
 }
 
 function normalizeSlice(slice: NinePatchSlice, texW: number, texH: number): NinePatchSlice {

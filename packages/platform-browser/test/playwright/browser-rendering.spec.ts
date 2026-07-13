@@ -15,6 +15,15 @@ interface BrowserBenchmarkResult {
   kind: PlatformKind;
   frames: number;
   iterations: number;
+  encode: BenchmarkTiming;
+  submit: BenchmarkTiming;
+  total: BenchmarkTiming;
+  meanCommandCount: number;
+  meanSpriteBatchCount: number;
+  meanInstanceCount: number;
+}
+
+interface BenchmarkTiming {
   meanMs: number;
   p95Ms: number;
   maxMs: number;

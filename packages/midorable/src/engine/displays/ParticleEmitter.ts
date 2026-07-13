@@ -1,4 +1,4 @@
-import { RenderableImage, Renderer, RenderState } from '../../platform';
+import { RenderableImage, RenderCommandEncoder, RenderState } from '../../platform';
 import { BlendMode, Color, Rectangle } from '../../platform';
 import { createEventHandlers } from '../events';
 import { multiplyTransform, clamp01, clamp255 } from '../internal';
@@ -342,7 +342,7 @@ export class ParticleEmitter extends DisplayObject {
     super.update();
   }
 
-  protected renderSelf(renderer: Renderer, state: RenderState): void {
+  protected renderSelf(encoder: RenderCommandEncoder, state: RenderState): void {
     for (const particle of this._particles) {
       const lifeT = particle.age / particle.lifetime;
       const scale =
@@ -374,7 +374,7 @@ export class ParticleEmitter extends DisplayObject {
         tx: particle.x - (halfWidth * a + halfHeight * c),
         ty: particle.y - (halfWidth * b + halfHeight * d),
       };
-      renderer.drawSprite(
+      encoder.drawSprite(
         this._image,
         {
           transform: multiplyTransform(state.transform, local),

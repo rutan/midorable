@@ -1,13 +1,16 @@
 import {
   Color,
   DrawTexturedTrianglesParams,
-  FilterInstance,
+  FilterBinding,
+  FilterResource,
   Rectangle,
+  RenderFrame,
   RenderableImage,
   Renderer,
-  RendererMeshFeature,
   RenderState,
   ShaderFilterDefinition,
+  SPRITE_INSTANCE_STRIDE,
+  SpriteBatchCommand,
 } from '@rutan/midorable/platform';
 import { CanvasBackedTexture } from '../internal/CanvasBackedTexture';
 import { clamp01, clamp255 } from '../internal/utilities';
@@ -29,8 +32,10 @@ type MaskStackEntry = {
 };
 
 type FilterStackEntry = {
-  filters: WebGlFilterInstance[];
+  filters: readonly WebGlFilterBinding[];
 };
+
+type WebGlFilterBinding = FilterBinding & { readonly resource: WebGlFilterInstance };
 
 type SourceTextureCacheEntry = {
   texture: WebGLTexture;
@@ -50,7 +55,7 @@ type SpriteBatch = {
   vertices: number[];
 };
 
-export class WebGlRenderer implements Renderer, RendererMeshFeature {
+export class WebGlRenderer implements Renderer {
   static readonly FILTER_UNIFORM_VEC4_COUNT = 16;
 
   private _canvas: HTMLCanvasElement;
@@ -103,6 +108,40 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+  }
+
+  submitFrame(frame: RenderFrame): void {
+    this.beginFrame();
+    try {
+      this.clear(frame.clearColor);
+      for (const command of frame.commands) {
+        switch (command.type) {
+          case 'spriteBatch':
+            this.drawSpriteBatch(command);
+            break;
+          case 'drawTexturedTriangles':
+            this.drawTexturedTriangles(command);
+            break;
+          case 'pushFilters':
+            this.pushFilters(command.filters, command.state);
+            break;
+          case 'popFilters':
+            this.popFilters();
+            break;
+          case 'pushMask':
+            this.pushMask();
+            break;
+          case 'activateMask':
+            this.activateMask();
+            break;
+          case 'popMask':
+            this.popMask();
+            break;
+        }
+      }
+    } finally {
+      this.endFrame();
+    }
   }
 
   onContextLost() {
@@ -266,6 +305,30 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     });
   }
 
+  private drawSpriteBatch(command: SpriteBatchCommand): void {
+    const target = this.currentTarget;
+    if (!this._frameActive || !target) {
+      return;
+    }
+    const source = command.image.source;
+    if (!(source instanceof HTMLImageElement) && !(source instanceof HTMLCanvasElement)) {
+      return;
+    }
+    const sourceRevision = source instanceof HTMLCanvasElement ? getCanvasBackedTextureRevision(command.image) : null;
+    const texture = this.resolveTexture(source, command.smooth, sourceRevision);
+    if (!texture) {
+      return;
+    }
+    this.flushSpriteBatch();
+    const vertices: number[] = [];
+    const data = command.instanceData;
+    for (let index = 0; index < command.instanceCount; index += 1) {
+      const offset = index * SPRITE_INSTANCE_STRIDE;
+      appendPackedSpriteVertices(vertices, target.width, target.height, data, offset);
+    }
+    this.drawSpriteVerticesWithProgram({ texture, target, vertices, blendMode: command.blendMode });
+  }
+
   drawTexturedTriangles(params: DrawTexturedTrianglesParams): void {
     const currentTarget = this.currentTarget;
     if (!this._frameActive || !currentTarget) {
@@ -312,7 +375,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     });
   }
 
-  async createFilter(definition: ShaderFilterDefinition): Promise<FilterInstance> {
+  async createFilterResource(definition: ShaderFilterDefinition): Promise<FilterResource> {
     if (definition.language !== 'glsl-es-300') {
       throw new Error(`Unsupported shader language: ${definition.language}`);
     }
@@ -340,33 +403,26 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     return filter;
   }
 
-  pushFilters(filters: readonly FilterInstance[], _state: RenderState): boolean {
+  pushFilters(filters: readonly FilterBinding[], _state: RenderState): void {
     if (!this._frameActive) {
-      return false;
+      return;
     }
 
     this.flushSpriteBatch();
-    const enabledFilters = filters.filter(
-      (filter): filter is WebGlFilterInstance =>
-        filter instanceof WebGlFilterInstance && filter.enabled && !filter.isDisposed,
-    );
-    if (enabledFilters.length === 0) {
-      return false;
-    }
+    assertWebGlFilterBindings(filters);
 
     const parentTarget = this.currentTarget;
     if (!parentTarget) {
-      return false;
+      return;
     }
 
     const target = this.acquireRenderTarget(parentTarget.width, parentTarget.height);
     this._targetStack.push(target);
-    this._filterStack.push({ filters: enabledFilters });
+    this._filterStack.push({ filters });
 
     this.bindTarget(target);
     this._gl.clearColor(0, 0, 0, 0);
     this._gl.clear(this._gl.COLOR_BUFFER_BIT);
-    return true;
   }
 
   popFilters() {
@@ -974,7 +1030,12 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
   }
 
-  private applyFilter(filter: WebGlFilterInstance, inputTexture: WebGLTexture, outputTarget: RenderTarget) {
+  private applyFilter(
+    binding: { resource: WebGlFilterInstance; uniformData: Float32Array },
+    inputTexture: WebGLTexture,
+    outputTarget: RenderTarget,
+  ) {
+    const filter = binding.resource;
     const gl = this._gl;
 
     this.bindTarget(outputTarget);
@@ -993,7 +1054,7 @@ export class WebGlRenderer implements Renderer, RendererMeshFeature {
     gl.bindTexture(gl.TEXTURE_2D, inputTexture);
     gl.uniform1i(filter.uTextureLocation, 0);
     if (filter.uUniformsLocation) {
-      gl.uniform4fv(filter.uUniformsLocation, filter.uniformData);
+      gl.uniform4fv(filter.uUniformsLocation, binding.uniformData);
     }
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -1180,6 +1241,16 @@ function compileShader(gl: WebGL2RenderingContext, type: number, source: string)
   throw new Error(`Failed to compile WebGL shader: ${error || 'unknown error'}`);
 }
 
+function assertWebGlFilterBindings(
+  filters: readonly FilterBinding[],
+): asserts filters is readonly WebGlFilterBinding[] {
+  for (const filter of filters) {
+    if (!(filter.resource instanceof WebGlFilterInstance) || filter.resource.disposed) {
+      throw new Error('Invalid WebGL filter resource');
+    }
+  }
+}
+
 function linkProgram(gl: WebGL2RenderingContext, vertexShader: WebGLShader, fragmentShader: WebGLShader): WebGLProgram {
   const program = gl.createProgram();
   if (!program) {
@@ -1244,6 +1315,61 @@ function appendSpriteVertices(
   appendSpriteVertex(result, p2.x, p2.y, uv[6] ?? 0, uv[7] ?? 0, color);
   appendSpriteVertex(result, p1.x, p1.y, uv[8] ?? 0, uv[9] ?? 0, color);
   appendSpriteVertex(result, p3.x, p3.y, uv[10] ?? 0, uv[11] ?? 0, color);
+}
+
+function appendPackedSpriteVertices(
+  result: number[],
+  targetWidth: number,
+  targetHeight: number,
+  data: Float32Array,
+  offset: number,
+): void {
+  const a = data[offset]!;
+  const b = data[offset + 1]!;
+  const c = data[offset + 2]!;
+  const d = data[offset + 3]!;
+  const tx = data[offset + 4]!;
+  const ty = data[offset + 5]!;
+  const width = data[offset + 6]!;
+  const height = data[offset + 7]!;
+  const u0 = data[offset + 8]!;
+  const v0 = data[offset + 9]!;
+  const u1 = data[offset + 10]!;
+  const v1 = data[offset + 11]!;
+  const alpha = data[offset + 12]!;
+  const toneR = data[offset + 13]!;
+  const toneG = data[offset + 14]!;
+  const toneB = data[offset + 15]!;
+  const toneA = data[offset + 16]!;
+  const x0 = (tx / targetWidth) * 2 - 1;
+  const y0 = 1 - (ty / targetHeight) * 2;
+  const x1 = ((a * width + tx) / targetWidth) * 2 - 1;
+  const y1 = 1 - ((b * width + ty) / targetHeight) * 2;
+  const x2 = ((c * height + tx) / targetWidth) * 2 - 1;
+  const y2 = 1 - ((d * height + ty) / targetHeight) * 2;
+  const x3 = ((a * width + c * height + tx) / targetWidth) * 2 - 1;
+  const y3 = 1 - ((b * width + d * height + ty) / targetHeight) * 2;
+  appendPackedSpriteVertex(result, x0, y0, u0, v0, alpha, toneR, toneG, toneB, toneA);
+  appendPackedSpriteVertex(result, x1, y1, u1, v0, alpha, toneR, toneG, toneB, toneA);
+  appendPackedSpriteVertex(result, x2, y2, u0, v1, alpha, toneR, toneG, toneB, toneA);
+  appendPackedSpriteVertex(result, x2, y2, u0, v1, alpha, toneR, toneG, toneB, toneA);
+  appendPackedSpriteVertex(result, x1, y1, u1, v0, alpha, toneR, toneG, toneB, toneA);
+  appendPackedSpriteVertex(result, x3, y3, u1, v1, alpha, toneR, toneG, toneB, toneA);
+}
+
+function appendPackedSpriteVertex(
+  result: number[],
+  x: number,
+  y: number,
+  u: number,
+  v: number,
+  alpha: number,
+  toneR: number,
+  toneG: number,
+  toneB: number,
+  toneA: number,
+): void {
+  result.push(x, y, u, v, alpha, toneR, toneG, toneB, toneA);
 }
 
 function appendSpriteVertex(

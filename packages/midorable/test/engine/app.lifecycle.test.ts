@@ -52,9 +52,8 @@ describe('App lifecycle', () => {
 
     app.render();
 
-    expect(renderer.beginFrame).toHaveBeenCalledTimes(1);
-    expect(renderer.clear).toHaveBeenCalledTimes(1);
-    expect(renderer.endFrame).toHaveBeenCalledTimes(1);
+    expect(renderer.submitFrame).toHaveBeenCalledTimes(1);
+    expect(renderer.submitFrame.mock.calls[0]?.[0].commands).toEqual([]);
   });
 
   it('exposes graphics capabilities from the graphics backend', () => {
@@ -62,12 +61,13 @@ describe('App lifecycle', () => {
     graphics.capabilities = {
       filters: {
         shaderLanguages: ['test-shader'],
+        maxUniformVectors: 16,
       },
     };
     const app = new App({ platform });
 
     expect(app.graphicsCapabilities).toEqual({
-      filters: { shaderLanguages: ['test-shader'] },
+      filters: { shaderLanguages: ['test-shader'], maxUniformVectors: 16 },
     });
   });
 

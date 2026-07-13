@@ -19,94 +19,88 @@ export interface ShaderFilterDefinition {
   uniforms?: Record<string, FilterUniformValue>;
 }
 
-export interface FilterInstance {
-  /** フィルターの一意な識別子 */
-  readonly id: string;
+export interface FilterResource {
+  /** Platform が保持するフィルターリソースを破棄 */
+  dispose(): void;
+}
+
+export class FilterInstance {
   /** フィルターの定義 */
   readonly definition: ShaderFilterDefinition;
+  /** Platform が保持するコンパイル済みリソース */
+  readonly resource: FilterResource;
   /** フィルターの有効/無効状態 */
-  enabled: boolean;
+  enabled = true;
+  private _disposed = false;
+  private _uniformLayout = new Map<string, number>();
+  private _uniformData: Float32Array;
+
+  constructor(definition: ShaderFilterDefinition, resource: FilterResource) {
+    this.definition = definition;
+    this.resource = resource;
+    const uniforms = definition.uniforms ?? {};
+    this._uniformData = new Float32Array(Object.keys(uniforms).length * 4);
+    let slot = 0;
+    for (const [name, value] of Object.entries(uniforms)) {
+      this._uniformLayout.set(name, slot);
+      this.writeUniform(slot, value);
+      slot += 1;
+    }
+  }
+
+  get disposed(): boolean {
+    return this._disposed;
+  }
+
+  /** 現在のユニフォーム値をフレーム用にコピー */
+  snapshotUniformData(): Float32Array {
+    return this._uniformData.slice();
+  }
+
   /** ユニフォームの値を設定 */
-  setUniform(name: string, value: FilterUniformValue): void;
+  setUniform(name: string, value: FilterUniformValue): void {
+    if (this._disposed) {
+      throw new Error('Filter is already disposed');
+    }
+    const slot = this._uniformLayout.get(name);
+    if (slot === undefined) {
+      throw new Error(`Unknown filter uniform: ${name}`);
+    }
+    this.writeUniform(slot, value);
+  }
+
   /** フィルターを破棄 */
-  dispose(): void;
+  dispose(): void {
+    if (this._disposed) {
+      return;
+    }
+    this._disposed = true;
+    this.enabled = false;
+    this.resource.dispose();
+  }
+
+  private writeUniform(slot: number, value: FilterUniformValue) {
+    const offset = slot * 4;
+    this._uniformData.fill(0, offset, offset + 4);
+    if (typeof value === 'number') {
+      this._uniformData[offset] = value;
+      return;
+    }
+    for (let index = 0; index < Math.min(4, value.length); index += 1) {
+      this._uniformData[offset + index] = value[index] ?? 0;
+    }
+  }
 }
 
 /**
  * Platform が提供する描画機能のインターフェース
  *
  * @remarks
- * Engine は 1 フレームごとに `beginFrame()`、`clear()`、描画メソッド群、`endFrame()` の順で呼び出す。
- * `drawSprite()` に渡される `RenderState.transform` は最終的なワールド変換であり、Platform はこの変換、
- * `alpha`, `blendMode`, `colorTone`, `smooth` を反映して描画する。
+ * Engine は1フレーム分の描画命令を構築し、`submitFrame()`を1回呼び出す。
  */
 export interface Renderer {
-  /**
-   * 描画前の初期化処理
-   *
-   * @remarks
-   * 1 フレームの描画開始時に呼び出される。必要に応じて描画先の準備や状態のリセットを行う。
-   */
-  beginFrame(): void;
-
-  /**
-   * 描画後の最終化処理
-   *
-   * @remarks
-   * 1 フレームの描画終了時に呼び出される。ダブルバッファの swap やコマンドの flush が必要な Platform は
-   * ここで行う。
-   */
-  endFrame(): void;
-
-  /** 描画内容のクリア */
-  clear(color?: Color): void;
-
-  /** スプライトの描画 */
-  drawSprite(image: RenderableImage, state: RenderState, frame?: Rectangle | null): void;
-
-  /**
-   * フィルターの適用
-   *
-   * @remarks
-   * フィルター用の描画レイヤーを開始できた場合は true を返す。
-   * true を返した場合、Engine は対応する `popFilters()` を後で呼び出す。
-   * false を返した場合、Engine はフィルターなしで通常描画を継続し、`popFilters()` は呼び出さない。
-   */
-  pushFilters(filters: readonly FilterInstance[], state: RenderState): boolean;
-
-  /**
-   * フィルターの解除
-   *
-   * @remarks
-   * `pushFilters()` が true を返した場合にだけ呼び出される。
-   */
-  popFilters(): void;
-
-  /**
-   * マスク付き描画の開始
-   *
-   * @remarks
-   * Engine は `pushMask()` の後にマスク対象の通常描画を行い、続けて `activateMask()` を呼び出す。
-   */
-  pushMask(): void;
-
-  /**
-   * マスクレイヤーの描画へ切り替え
-   *
-   * @remarks
-   * この呼び出しの後、Engine は mask オブジェクトを描画する。その後 `popMask()` を呼び出す。
-   */
-  activateMask(): void;
-
-  /**
-   * マスクの解除
-   *
-   * @remarks
-   * `pushMask()` で開始したマスク付き描画を終了する。
-   */
-  popMask(): void;
-
-  /** 描画領域のリサイズ */
+  /** 1フレーム分の描画命令を同期的に受理する。戻った後に frame の内容を保持してはならない。 */
+  submitFrame(frame: RenderFrame): void;
   resize(width: number, height: number): void;
 }
 
@@ -131,15 +125,57 @@ export interface DrawTexturedTrianglesParams {
   tint?: Color;
 }
 
-/**
- * 任意のテクスチャ付き三角形メッシュを描画する拡張機能。
- *
- * @remarks
- * 基本 Renderer の必須機能ではない。利用側は `app.getFeature('renderer.mesh')`
- * で存在確認してから使用する。
- */
-export interface RendererMeshFeature {
+export const SPRITE_INSTANCE_STRIDE = 17;
+
+export interface RenderFrame {
+  readonly clearColor: Color;
+  readonly commands: readonly RenderCommand[];
+}
+
+export type RenderCommand =
+  | SpriteBatchCommand
+  | DrawTexturedTrianglesCommand
+  | { readonly type: 'pushMask' }
+  | { readonly type: 'activateMask' }
+  | { readonly type: 'popMask' }
+  | PushFiltersCommand
+  | { readonly type: 'popFilters' };
+
+export interface SpriteBatchCommand {
+  readonly type: 'spriteBatch';
+  readonly image: RenderableImage;
+  readonly blendMode: BlendMode;
+  readonly smooth: boolean;
+  readonly instanceCount: number;
+  readonly instanceData: Float32Array;
+}
+
+export interface DrawTexturedTrianglesCommand extends DrawTexturedTrianglesParams {
+  readonly type: 'drawTexturedTriangles';
+  readonly positions: Float32Array;
+  readonly uvs: Float32Array;
+  readonly indices: Uint16Array | Uint32Array;
+}
+
+export interface FilterBinding {
+  readonly resource: FilterResource;
+  readonly uniformData: Float32Array;
+}
+
+export interface PushFiltersCommand {
+  readonly type: 'pushFilters';
+  readonly filters: readonly FilterBinding[];
+  readonly state: RenderState;
+}
+
+export interface RenderCommandEncoder {
+  drawSprite(image: RenderableImage, state: RenderState, frame?: Rectangle | null): void;
   drawTexturedTriangles(params: DrawTexturedTrianglesParams): void;
+  pushFilters(filters: readonly FilterInstance[], state: RenderState): void;
+  popFilters(): void;
+  pushMask(): void;
+  activateMask(): void;
+  popMask(): void;
 }
 
 export interface RenderState {

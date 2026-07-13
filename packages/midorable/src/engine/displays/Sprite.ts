@@ -1,4 +1,4 @@
-import { RenderState, RenderableImage, Renderer } from '../../platform';
+import { RenderCommandEncoder, RenderState, RenderableImage } from '../../platform';
 import { Rectangle } from '../../platform';
 import { multiplyTransform } from '../internal';
 import { DisplayObject, DisplayObjectProps } from './DisplayObject';
@@ -69,12 +69,12 @@ export class Sprite extends DisplayObject {
     super.dispose();
   }
 
-  protected renderSelf(renderer: Renderer, state: RenderState) {
+  protected renderSelf(encoder: RenderCommandEncoder, state: RenderState) {
     const bounds = this.getAnchorAdjustedLocalBounds();
     if (!bounds) {
       return;
     }
-    renderer.drawSprite(this._image, withOffset(state, bounds.x, bounds.y), this._frame);
+    encoder.drawSprite(this._image, withOffset(state, bounds.x, bounds.y), this._frame);
   }
 
   getLocalBounds() {

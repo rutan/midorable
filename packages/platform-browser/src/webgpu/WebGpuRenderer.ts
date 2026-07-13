@@ -1,12 +1,16 @@
 import {
   BlendMode,
   Color,
-  FilterInstance,
+  FilterBinding,
+  FilterResource,
   Rectangle,
+  RenderFrame,
   RenderableImage,
   Renderer,
   RenderState,
   ShaderFilterDefinition,
+  SPRITE_INSTANCE_STRIDE,
+  SpriteBatchCommand,
 } from '@rutan/midorable/platform';
 import { clamp01 } from '../internal/utilities';
 import { WebGpuFilterInstance } from './WebGpuFilterInstance';
@@ -39,6 +43,7 @@ type RenderTarget = {
   attachmentTexture: GPUTexture | null;
 };
 type FrameContext = { device: GPUDevice; canvas: HTMLCanvasElement; target: RenderTarget };
+type WebGpuFilterBinding = FilterBinding & { readonly resource: WebGpuFilterInstance };
 
 export class WebGpuRenderer implements Renderer {
   static readonly FILTER_UNIFORM_VEC4_COUNT = 16;
@@ -71,7 +76,7 @@ export class WebGpuRenderer implements Renderer {
     blendMode: BlendMode;
     texture: GPUTexture;
     smooth: boolean;
-    instances: number[];
+    instances: number[] | Float32Array;
   } | null = null;
   private _maskStack: {
     parentTarget: RenderTarget;
@@ -82,7 +87,7 @@ export class WebGpuRenderer implements Renderer {
   private _filterSampler: GPUSampler | null = null;
   private _filterStack: {
     target: RenderTarget;
-    filters: WebGpuFilterInstance[];
+    filters: readonly WebGpuFilterBinding[];
   }[] = [];
   private _pendingTextureDestroy = new Set<GPUTexture>();
   private _clearColor: GPUColor = { r: 0, g: 0, b: 0, a: 1 };
@@ -90,6 +95,39 @@ export class WebGpuRenderer implements Renderer {
 
   constructor(platform: WebGpuPlatform) {
     this._platform = platform;
+  }
+
+  submitFrame(frame: RenderFrame): void {
+    this.beginFrame();
+    try {
+      this.clear(frame.clearColor);
+      for (const command of frame.commands) {
+        switch (command.type) {
+          case 'spriteBatch':
+            this.drawSpriteBatch(command);
+            break;
+          case 'pushFilters':
+            this.pushFilters(command.filters, command.state);
+            break;
+          case 'popFilters':
+            this.popFilters();
+            break;
+          case 'pushMask':
+            this.pushMask();
+            break;
+          case 'activateMask':
+            this.activateMask();
+            break;
+          case 'popMask':
+            this.popMask();
+            break;
+          case 'drawTexturedTriangles':
+            throw new Error('Textured triangle meshes are not supported by WebGpuRenderer');
+        }
+      }
+    } finally {
+      this.endFrame();
+    }
   }
 
   beginFrame() {
@@ -207,7 +245,8 @@ export class WebGpuRenderer implements Renderer {
         ]
       : [0, 0, 1, 1];
 
-    this._spriteBatch!.instances.push(
+    const instances = this._spriteBatch!.instances as number[];
+    instances.push(
       state.transform.a,
       state.transform.b,
       state.transform.c,
@@ -230,7 +269,44 @@ export class WebGpuRenderer implements Renderer {
     );
   }
 
-  async createFilter(definition: ShaderFilterDefinition): Promise<FilterInstance> {
+  private drawSpriteBatch(command: SpriteBatchCommand): void {
+    const context = this.getActiveFrameContext();
+    if (!context) {
+      return;
+    }
+    const { device, canvas, target } = context;
+    this.ensurePipeline(device, command.blendMode);
+    if (!this._linearSampler || !this._nearestSampler || !this._vertexBuffer) {
+      return;
+    }
+    if (!this._pass) {
+      this._pass = this.beginColorPass(target, 'load', this._clearColor);
+    }
+    const texture = this.resolveGpuTexture(command.image);
+    if (!texture) {
+      return;
+    }
+    this.flushSpriteBatch(device);
+    const source = command.instanceData;
+    const instances = new Float32Array(command.instanceCount * WebGpuRenderer.SPRITE_INSTANCE_FLOATS);
+    for (let index = 0; index < command.instanceCount; index += 1) {
+      const sourceOffset = index * SPRITE_INSTANCE_STRIDE;
+      const targetOffset = index * WebGpuRenderer.SPRITE_INSTANCE_FLOATS;
+      instances.set(source.subarray(sourceOffset, sourceOffset + 12), targetOffset);
+      instances[targetOffset + 12] = canvas.width;
+      instances[targetOffset + 13] = canvas.height;
+      instances.set(source.subarray(sourceOffset + 12, sourceOffset + SPRITE_INSTANCE_STRIDE), targetOffset + 14);
+    }
+    this._spriteBatch = {
+      targetView: target.attachmentView,
+      blendMode: command.blendMode,
+      texture,
+      smooth: command.smooth,
+      instances,
+    };
+  }
+
+  async createFilterResource(definition: ShaderFilterDefinition): Promise<FilterResource> {
     const device = this._platform.device;
     if (!device) {
       throw new Error('WebGPU renderer is not initialized');
@@ -239,32 +315,25 @@ export class WebGpuRenderer implements Renderer {
       throw new Error(`Unsupported shader language: ${definition.language}`);
     }
     const pipeline = await this.ensureFilterPipeline(device, definition.fragment);
-    return new WebGpuFilterInstance(definition, pipeline);
+    return new WebGpuFilterInstance(pipeline);
   }
 
-  pushFilters(filters: readonly FilterInstance[], _state: RenderState): boolean {
+  pushFilters(filters: readonly FilterBinding[], _state: RenderState): void {
     const frame = this.getActiveFrameContext();
     if (!frame) {
-      return false;
+      return;
     }
     const { device, canvas } = frame;
 
-    const enabledFilters = filters.filter(
-      (filter): filter is WebGpuFilterInstance =>
-        filter instanceof WebGpuFilterInstance && filter.enabled && !filter.isDisposed,
-    );
-    if (enabledFilters.length === 0) {
-      return false;
-    }
+    assertWebGpuFilterBindings(filters);
 
     this.flushAndEndPass(device);
 
     const target = this.createRenderTarget(device, canvas.width, canvas.height);
     this._targetStack.push(target);
-    this._filterStack.push({ target, filters: enabledFilters });
+    this._filterStack.push({ target, filters });
 
     this._pass = this.beginColorPass(target, 'clear', { r: 0, g: 0, b: 0, a: 0 });
-    return true;
   }
 
   popFilters() {
@@ -794,14 +863,15 @@ export class WebGpuRenderer implements Renderer {
     device: GPUDevice,
     inputTexture: GPUTexture,
     outputTarget: RenderTarget,
-    filter: WebGpuFilterInstance,
+    binding: { resource: WebGpuFilterInstance; uniformData: Float32Array },
     clearOutput: boolean,
   ) {
     if (!this._encoder || !this._vertexBuffer || !this._filterSampler) {
       return;
     }
 
-    const { buffer: uniformBuffer } = this.writeUniform(device, filter.uniformBufferData);
+    const filter = binding.resource;
+    const { buffer: uniformBuffer } = this.writeUniform(device, binding.uniformData);
     const bindGroup = device.createBindGroup({
       layout: filter.pipeline.getBindGroupLayout(0),
       entries: [
@@ -1117,6 +1187,16 @@ function roundUpTo(value: number, unit: number) {
     return unit;
   }
   return Math.ceil(value / unit) * unit;
+}
+
+function assertWebGpuFilterBindings(
+  filters: readonly FilterBinding[],
+): asserts filters is readonly WebGpuFilterBinding[] {
+  for (const filter of filters) {
+    if (!(filter.resource instanceof WebGpuFilterInstance) || filter.resource.disposed) {
+      throw new Error('Invalid WebGPU filter resource');
+    }
+  }
 }
 
 function createFilterShaderSource(fragmentShader: string) {
