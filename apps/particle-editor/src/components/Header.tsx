@@ -8,8 +8,8 @@ import {
   useParticleEmitterConfig,
   usePreviewSettings,
 } from '../hooks';
-import { validateParticleEmitterConfig } from '../typia';
-import { cx, generateTypiaErrorMessage } from '../utils';
+import { particleEmitterConfigSchema } from '../schemas';
+import { cx, generateValidationErrorMessage } from '../utils';
 import { PreviewSettingsDialog } from './PreviewSettingsDialog';
 
 export const Header = () => {
@@ -35,9 +35,9 @@ export const Header = () => {
     try {
       const text = await file.text();
       const parsed = JSON.parse(text) as unknown;
-      const result = validateParticleEmitterConfig(parsed);
+      const result = particleEmitterConfigSchema.safeParse(parsed);
       if (!result.success) {
-        window.alert(`設定ファイルの形式が不正です: ${generateTypiaErrorMessage(result.errors)}`);
+        window.alert(`設定ファイルの形式が不正です: ${generateValidationErrorMessage(result.error.issues)}`);
         return;
       }
       setConfig(result.data);

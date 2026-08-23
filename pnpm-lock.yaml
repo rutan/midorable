@@ -96,16 +96,13 @@ importers:
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
-      typia:
-        specifier: 14.0.0
-        version: 14.0.0(ttsc@0.28.0)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.2.2(@types/node@25.9.5)(esbuild@0.27.2)(jiti@2.7.0)(sass@1.90.0)(yaml@2.9.0))
-      '@ttsc/unplugin':
-        specifier: 0.28.0
-        version: 0.28.0(ttsc@0.28.0)
       '@types/react':
         specifier: ^19.2.18
         version: 19.2.18
@@ -115,9 +112,6 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^5.2.0
         version: 5.2.0(vite@8.2.2(@types/node@25.9.5)(esbuild@0.27.2)(jiti@2.7.0)(sass@1.90.0)(yaml@2.9.0))
-      ttsc:
-        specifier: 0.28.0
-        version: 0.28.0
 
   packages/midorable: {}
 
@@ -1309,46 +1303,6 @@ packages:
   '@tanstack/virtual-core@3.17.8':
     resolution: {integrity: sha512-BfEvehNpOT75r5Ksc5xW6NZuXujTfb7nlSEyVu4XHG3gdxNg1KqXruWbDewXOUaUYIo4oRbSfkjIajz4MAT8tA==}
 
-  '@ttsc/darwin-arm64@0.28.0':
-    resolution: {integrity: sha512-DpouHlfTS/YJauBlyUu2fRFHnyquWD+nWI8Mg7H8UXQSQ0QHSQYEZHaLbQQNKimXHCZJGERCDthvS1tYQtdBoA==}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@ttsc/darwin-x64@0.28.0':
-    resolution: {integrity: sha512-tBcs2iYRtQFppxboSXzsrDCBDNqg51go31OWVybr+2aWhbP0a6NtwtXzMLKtEsRL78Dy2mWXonpR3Jda25QiPw==}
-    cpu: [x64]
-    os: [darwin]
-
-  '@ttsc/linux-arm64@0.28.0':
-    resolution: {integrity: sha512-9yRzHm8TL0cR1cw9EM/h7ia1Vi0wVnpHvA6KQo1D69nv79Z5RQtfe3JVLAuxsY/5s/So7P5wT3MJXgTqeLEyeg==}
-    cpu: [arm64]
-    os: [linux]
-
-  '@ttsc/linux-arm@0.28.0':
-    resolution: {integrity: sha512-FCATyrgpISFdhb4CoMecyBA8C0G0fLhGS1Awb+9BeUftm9/MCVKwhd9WecbHondcHmN9LA9pfP/VYLnQ247+iA==}
-    cpu: [arm]
-    os: [linux]
-
-  '@ttsc/linux-x64@0.28.0':
-    resolution: {integrity: sha512-/v1HuFS630OOkX1zADJ/rUNA2WVhrwzv/mSd0Kebv2pJNyCjJ8b1UL8fstA7R0Wcw0oGvxdRouwgR0pNXrpTnA==}
-    cpu: [x64]
-    os: [linux]
-
-  '@ttsc/unplugin@0.28.0':
-    resolution: {integrity: sha512-meixDgvTk+CN89LjKb4bhPp2kkv2PEUtOHFYyui6xR+ENlITxhx1yFq9XRhSvuQGNTmdvwZuR1JJJEFIxunMwA==}
-    peerDependencies:
-      ttsc: ^0.28.0
-
-  '@ttsc/win32-arm64@0.28.0':
-    resolution: {integrity: sha512-UR9UdifvO+XYTAajuSDWz5gpzF5qZonNRIl6WLOd5go6Z6cDxxL/s3fzEui1S56FQvHAHQ6Y6VnXvDUaUZJegg==}
-    cpu: [arm64]
-    os: [win32]
-
-  '@ttsc/win32-x64@0.28.0':
-    resolution: {integrity: sha512-/V/dS8RFjU7mtWfvaUo+V+syfJaxzN8zigNcC+4Ja6q8U6sQkf7I6TpJxEHeid9xtxT8VdLTOMcASci+3XS5dw==}
-    cpu: [x64]
-    os: [win32]
-
   '@turbo/darwin-64@2.10.11':
     resolution: {integrity: sha512-v3R+1R/Ysozyo+p7Ri8MCIbndOvYt3DgPFrGLhrhQHfvyvbxyH3WyJj+A/2JTNmNleuAlh3JUyCV0iSVHIONTA==}
     cpu: [x64]
@@ -1589,12 +1543,6 @@ packages:
   '@typescript/typescript6@6.0.2':
     resolution: {integrity: sha512-mbCddXd+jm7hfx7w2YU64/Av4/NqqeG3GoRZgxPcgoTxYjhrcfJRw9ULch71SS4G+Q3bOXFhRvPqjguN0Hyp5w==}
     hasBin: true
-
-  '@typia/interface@14.0.0':
-    resolution: {integrity: sha512-rzueBuE8TQYJStfyunPuonx4Irqi9L0tDiTTpfJBt5ZKaVA7MYirJvtlBoj0SExhnoF6hcjabQzz906NF6u57w==}
-
-  '@typia/utils@14.0.0':
-    resolution: {integrity: sha512-zXJUft0gI/CJ8DxxBZUFb7HtyqxoUB1qhNkscvagCgTmQeuZFdQgkDIkgYMxKa48M9+pv4FbOFlDo7rDWO9Ytw==}
 
   '@vitejs/plugin-react@5.2.0':
     resolution: {integrity: sha512-YmKkfhOAi3wsB1PhJq5Scj3GXMn3WvtQ/JC0xoopuHoXSdmtdStOpFrYaT1kie2YgFBcIe64ROzMYRjCrYOdYw==}
@@ -1910,10 +1858,6 @@ packages:
   dotenv@8.6.0:
     resolution: {integrity: sha512-IrPdXQsk2BbzvCBGBOTmmSH5SodmqZNt4ERAZDmW4CT+tL8VtvinqywuANaFu4bOMWki16nqf0e4oC0QIaDr/g==}
     engines: {node: '>=10'}
-
-  drange@1.1.1:
-    resolution: {integrity: sha512-pYxfDYpued//QpnLIm4Avk7rsNtAtQkUES2cwAYSvD/wd2pKD71gN2Ebj3e7klzXwjocvE8c5vx/1fxwpqmSxA==}
-    engines: {node: '>=4'}
 
   dts-resolver@3.0.0:
     resolution: {integrity: sha512-1T1f+z+4tl9XD+m+0HBgWoL/nm0bOIffyWaUuUSBlFg/86IWvfx+wjNaO/ybU0AJzG9/Mi5hBUgGV6zCmWEN7Q==}
@@ -2632,10 +2576,6 @@ packages:
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
 
-  randexp@0.5.3:
-    resolution: {integrity: sha512-U+5l2KrcMNOUPYvazA3h5ekF80FHTUG+87SEAmHZmolh1M+i/WyTCxVzmi+tidIa1tM4BSe8g2Y/D3loWDjj+w==}
-    engines: {node: '>=4'}
-
   react-aria@3.51.0:
     resolution: {integrity: sha512-AyWLw0XR38cFPwBu/ErgGaVrc5dupLEKmRlMXTGvFKOtbaGRQ2+yQJkjVhpdHhoRhU4+G+tJDFeHDTS8tK3bfQ==}
     peerDependencies:
@@ -2687,10 +2627,6 @@ packages:
     resolution: {integrity: sha512-TyeJ1zif53BPfHootBGwPRYT1RUt6oGWsaQr8UyZW/eAm9bKoijtvruSDEmZHm92CwS9nj7/fWttqPCgzep8CA==}
     engines: {node: '>= 0.4'}
     hasBin: true
-
-  ret@0.2.2:
-    resolution: {integrity: sha512-M0b3YWQs7R3Z917WRQy1HHA7Ba7D8hvZg6UE5mLykJxQVE2ju0IXbGlaHPPlkY+WN7wFP+wUMXmBFA0aV6vYGQ==}
-    engines: {node: '>=4'}
 
   reusify@1.1.0:
     resolution: {integrity: sha512-g6QUff04oZpHs0eG5p83rFLhHeV00ug/Yf9nZM6fLeUrPguBTkTQOdpAWWspMh55TZfVQDPaN3NQJfbVRAxdIw==}
@@ -2886,11 +2822,6 @@ packages:
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
-  ttsc@0.28.0:
-    resolution: {integrity: sha512-aP7NSeg3vbDO+cHRrNHKq+RMAEUxacSxYQa4+clkWtE9wcFtu58z6CVk+OFyXITN2BXajA0nMgBUFD4crfFM4w==}
-    engines: {node: '>=22.15.0'}
-    hasBin: true
-
   turbo@2.10.11:
     resolution: {integrity: sha512-yQfwQVoRXwOuyX1LxiJFBFNg6VfuYh+/RyZLd82+isgyLkBXw3S5XRRzvcck1FAjSCG5sVyLd+O1eDMvYa3J7g==}
     hasBin: true
@@ -2916,14 +2847,6 @@ packages:
     engines: {node: '>=16.20.0'}
     hasBin: true
 
-  typia@14.0.0:
-    resolution: {integrity: sha512-lvuxoS8tFqlYwiwJ86t1FtDUhNPMrp4qjokvmI4+HLXHxlrVX3TUaOYDl9cdA4MUhrBUjt13J+sFwqq3WRA+AQ==}
-    peerDependencies:
-      ttsc: '>=0.19.2'
-    peerDependenciesMeta:
-      ttsc:
-        optional: true
-
   uc.micro@2.1.0:
     resolution: {integrity: sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A==}
 
@@ -2936,10 +2859,6 @@ packages:
   universalify@0.1.2:
     resolution: {integrity: sha512-rBJeI5CXAlmy1pV+617WB9J63U6XcazHHF2f2dbJix4XzpUF0RS3Zbj0FGIOCAva5P/d/GBOYaACQ1w+0azUkg==}
     engines: {node: '>= 4.0.0'}
-
-  unplugin@2.3.11:
-    resolution: {integrity: sha512-5uKD0nqiYVzlmCRs01Fhs2BdkEgBS3SAVP6ndrBsuK42iC2+JHyxM05Rm9G8+5mkmRtzMZGY8Ct5+mliZxU/Ww==}
-    engines: {node: '>=18.12.0'}
 
   unrun@0.2.39:
     resolution: {integrity: sha512-h9FxYVpztY/wwq+bauLOh6Y3CWu2IVeRLq5lxzneBiIU9Tn86OGp9xiQrGhnYspAmg5dzdY0Cc8+Y70kuTARCg==}
@@ -3056,9 +2975,6 @@ packages:
   webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
 
-  webpack-virtual-modules@0.6.2:
-    resolution: {integrity: sha512-66/V2i5hQanC51vBQKPH4aI8NMAcBW59FVBs+rC7eGHupMyfn34q7rZIE+ETlJ+XTevqfUhVVBgSUNSW2flEUQ==}
-
   whatwg-url@5.0.0:
     resolution: {integrity: sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==}
 
@@ -3101,6 +3017,9 @@ packages:
 
   yuku-parser@0.8.7:
     resolution: {integrity: sha512-vRD9nwt4L3aYpxNqeSC4WqLv58xrXef0Ong1Mc45CTXTIpvLafx7JO05sczmQZwdLEZvywrLOGdNC5+Rp5N1BQ==}
+
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
 
@@ -4065,32 +3984,6 @@ snapshots:
 
   '@tanstack/virtual-core@3.17.8': {}
 
-  '@ttsc/darwin-arm64@0.28.0':
-    optional: true
-
-  '@ttsc/darwin-x64@0.28.0':
-    optional: true
-
-  '@ttsc/linux-arm64@0.28.0':
-    optional: true
-
-  '@ttsc/linux-arm@0.28.0':
-    optional: true
-
-  '@ttsc/linux-x64@0.28.0':
-    optional: true
-
-  '@ttsc/unplugin@0.28.0(ttsc@0.28.0)':
-    dependencies:
-      ttsc: 0.28.0
-      unplugin: 2.3.11
-
-  '@ttsc/win32-arm64@0.28.0':
-    optional: true
-
-  '@ttsc/win32-x64@0.28.0':
-    optional: true
-
   '@turbo/darwin-64@2.10.11':
     optional: true
 
@@ -4282,12 +4175,6 @@ snapshots:
   '@typescript/typescript6@6.0.2':
     dependencies:
       '@typescript/old': typescript@6.0.3
-
-  '@typia/interface@14.0.0': {}
-
-  '@typia/utils@14.0.0':
-    dependencies:
-      '@typia/interface': 14.0.0
 
   '@vitejs/plugin-react@5.2.0(vite@8.2.2(@types/node@25.9.5)(esbuild@0.27.2)(jiti@2.7.0)(sass@1.90.0)(yaml@2.9.0))':
     dependencies:
@@ -4528,8 +4415,6 @@ snapshots:
       path-type: 4.0.0
 
   dotenv@8.6.0: {}
-
-  drange@1.1.1: {}
 
   dts-resolver@3.0.0: {}
 
@@ -5184,11 +5069,6 @@ snapshots:
 
   queue-microtask@1.2.3: {}
 
-  randexp@0.5.3:
-    dependencies:
-      drange: 1.1.1
-      ret: 0.2.2
-
   react-aria@3.51.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@internationalized/date': 3.12.3
@@ -5249,8 +5129,6 @@ snapshots:
       is-core-module: 2.16.2
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
-
-  ret@0.2.2: {}
 
   reusify@1.1.0: {}
 
@@ -5428,16 +5306,6 @@ snapshots:
 
   tslib@2.8.1: {}
 
-  ttsc@0.28.0:
-    optionalDependencies:
-      '@ttsc/darwin-arm64': 0.28.0
-      '@ttsc/darwin-x64': 0.28.0
-      '@ttsc/linux-arm': 0.28.0
-      '@ttsc/linux-arm64': 0.28.0
-      '@ttsc/linux-x64': 0.28.0
-      '@ttsc/win32-arm64': 0.28.0
-      '@ttsc/win32-x64': 0.28.0
-
   turbo@2.10.11:
     optionalDependencies:
       '@turbo/darwin-64': 2.10.11
@@ -5485,15 +5353,6 @@ snapshots:
       '@typescript/typescript-win32-arm64': 7.0.2
       '@typescript/typescript-win32-x64': 7.0.2
 
-  typia@14.0.0(ttsc@0.28.0):
-    dependencies:
-      '@standard-schema/spec': 1.1.0
-      '@typia/interface': 14.0.0
-      '@typia/utils': 14.0.0
-      randexp: 0.5.3
-    optionalDependencies:
-      ttsc: 0.28.0
-
   uc.micro@2.1.0: {}
 
   unconfig-core@7.5.0:
@@ -5504,13 +5363,6 @@ snapshots:
   undici-types@7.24.6: {}
 
   universalify@0.1.2: {}
-
-  unplugin@2.3.11:
-    dependencies:
-      '@jridgewell/remapping': 2.3.5
-      acorn: 8.18.0
-      picomatch: 4.0.5
-      webpack-virtual-modules: 0.6.2
 
   unrun@0.2.39:
     dependencies:
@@ -5577,8 +5429,6 @@ snapshots:
 
   webidl-conversions@3.0.1: {}
 
-  webpack-virtual-modules@0.6.2: {}
-
   whatwg-url@5.0.0:
     dependencies:
       tr46: 0.0.3
@@ -5643,3 +5493,5 @@ snapshots:
       '@yuku-parser/binding-linux-x64-musl': 0.8.7
       '@yuku-parser/binding-win32-arm64': 0.8.7
       '@yuku-parser/binding-win32-x64': 0.8.7
+
+  zod@4.4.3: {}

@@ -3,7 +3,7 @@ import { Rectangle } from '@rutan/midorable';
 import { CheckSquare, Square, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useImage, useTexturePack } from '../hooks';
-import { cx, generateTypiaErrorMessage } from '../utils';
+import { cx, generateValidationErrorMessage } from '../utils';
 import { parseTexturePackFrames } from '../utils';
 import { Section } from './EditorFields';
 
@@ -93,7 +93,7 @@ export function TextureTab({
       const parsed = JSON.parse(text) as unknown;
       const result = parseTexturePackFrames(parsed);
       if (!result.success) {
-        alert(`パックJSONの解析に失敗しました: ${generateTypiaErrorMessage(result.errors)}`);
+        alert(`パックJSONの解析に失敗しました: ${generateValidationErrorMessage(result.error.issues)}`);
         setPackManifest(null);
         setSelectedFrameNames([]);
         return;

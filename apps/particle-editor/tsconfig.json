@@ -4,6 +4,5 @@
     "skipLibCheck": true,
     "jsx": "react-jsx"
   },
-  "include": ["src/**/*"],
-  "exclude": ["src/typia/generated"]
+  "include": ["src/**/*"]
 }
