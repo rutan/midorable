@@ -10,7 +10,7 @@ see README.md for the concept.
 - `pnpm build`: Build the production version using Vite.
 - `pnpm start`: Preview the production build locally.
 - `pnpm format`: Auto-format code with `oxfmt` and apply `oxlint` fixes. (if you edit code, run this command)
-- `pnpm lint`: Run all linters (`oxfmt`, `oxlint`, and `tsgo`. If you edit code, run this command).
+- `pnpm lint`: Run all linters (`oxfmt`, `oxlint`, and `tsc`. If you edit code, run this command).
 
 ## Directory Structure
 

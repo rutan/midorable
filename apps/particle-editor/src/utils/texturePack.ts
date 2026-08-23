@@ -1,5 +1,5 @@
 import { Rectangle } from '@rutan/midorable';
-import { validateTexturePackManifest } from '../typia';
+import { texturePackManifestSchema } from '../schemas';
 
 export interface TexturePackFrame {
   name: string;
@@ -12,7 +12,7 @@ export interface TexturePackManifest {
 }
 
 export function parseTexturePackFrames(input: unknown) {
-  const result = validateTexturePackManifest(input);
+  const result = texturePackManifestSchema.safeParse(input);
   if (!result.success) return result;
 
   const { image, frames } = result.data;

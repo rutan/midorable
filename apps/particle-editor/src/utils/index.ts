@@ -1,3 +1,3 @@
 export * from './cx';
-export * from './generateTypiaErrorMessage';
+export * from './generateValidationErrorMessage';
 export * from './texturePack';

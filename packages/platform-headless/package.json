@@ -34,7 +34,7 @@
     "build:tsdown": "tsdown",
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint --type-aware .",
-    "lint:tsc": "tsgo",
+    "lint:tsc": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "oxlint --type-aware --fix ."
