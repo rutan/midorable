@@ -24,7 +24,7 @@
     "@playwright/test": "^1.62.1",
     "@typescript/native": "npm:typescript@^7.0.2",
     "eslint-plugin-tsdoc": "^0.5.2",
-    "npm-run-all2": "^8.0.4",
+    "npm-run-all2": "^9.0.3",
     "oxfmt": "^0.41.0",
     "oxlint": "^1.79.0",
     "oxlint-tsgolint": "^7.0.2001",
