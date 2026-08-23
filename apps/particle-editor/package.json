@@ -15,21 +15,21 @@
     "format:oxlint": "oxlint --fix ."
   },
   "dependencies": {
-    "@headlessui/react": "^2.2.9",
+    "@headlessui/react": "^2.2.10",
     "@rutan/midorable": "workspace:*",
     "@rutan/midorable-platform-browser": "workspace:*",
-    "jotai": "^2.18.0",
+    "jotai": "^2.20.2",
     "lucide-react": "^0.575.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "tailwindcss": "^4.1.18",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tailwindcss": "^4.3.3",
     "typia": "^11.0.3"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.18",
-    "@types/react": "^19.2.10",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.2"
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^5.2.0"
   },
-  "packageManager": "pnpm@10.28.2"
+  "packageManager": "pnpm@10.32.1"
 }
