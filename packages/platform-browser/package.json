@@ -47,7 +47,7 @@
     "build:tsdown": "tsdown",
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint --type-aware .",
-    "lint:tsc": "tsgo",
+    "lint:tsc": "tsc",
     "test": "run-s test:*",
     "test:vitest": "vitest run test/unit",
     "test:browser": "playwright test",

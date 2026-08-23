@@ -1,1 +1,1 @@
-export * from './generated/check';
+export * from './template/check';
