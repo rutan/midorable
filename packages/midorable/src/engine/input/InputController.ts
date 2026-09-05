@@ -89,11 +89,11 @@ export interface PointerEvent {
 export class InputController {
   private _backend: InputBackend;
   private _lastSnapshot: InputSnapshot = { pointers: [], keyboard: { pressedKeys: [] }, gamepads: [] };
-  private _state: InputState = createInputState(
-    [],
-    { down: new Set(), justPressed: new Set(), justReleased: new Set() },
-    [],
-  );
+  private _state: InputState = {
+    pointers: [],
+    keyboard: { down: new Set(), justPressed: new Set(), justReleased: new Set() },
+    gamepads: [],
+  };
 
   constructor(backend: InputBackend) {
     this._backend = backend;
@@ -182,11 +182,11 @@ export class InputController {
       });
     }
 
-    this._state = createInputState(
-      nextPointers,
-      { down: currentKeys, justPressed: keyboardJustPressed, justReleased: keyboardJustReleased },
-      nextGamepads,
-    );
+    this._state = {
+      pointers: nextPointers,
+      keyboard: { down: currentKeys, justPressed: keyboardJustPressed, justReleased: keyboardJustReleased },
+      gamepads: nextGamepads,
+    };
     this._lastSnapshot = cloneSnapshot(snapshot);
   }
 }
@@ -213,19 +213,14 @@ function createSnapshotPointerMap(pointers: InputPointerSnapshot[]): Map<number,
 function createSnapshotGamepadMap(gamepads: InputGamepadSnapshot[]): Map<number, boolean[]> {
   const map = new Map<number, boolean[]>();
   for (const gamepad of gamepads) {
-    map.set(gamepad.index, [...gamepad.buttons]);
+    map.set(gamepad.index, gamepad.buttons);
   }
   return map;
 }
 
 function cloneSnapshot(snapshot: InputSnapshot): InputSnapshot {
   return {
-    pointers: snapshot.pointers.map((pointer) => {
-      if (pointer.kind === 'mouse') {
-        return { ...pointer };
-      }
-      return { ...pointer };
-    }),
+    pointers: snapshot.pointers.map((pointer) => ({ ...pointer })),
     keyboard: {
       pressedKeys: [...snapshot.keyboard.pressedKeys],
     },
@@ -235,17 +230,5 @@ function cloneSnapshot(snapshot: InputSnapshot): InputSnapshot {
       buttons: [...gamepad.buttons],
       axes: [...gamepad.axes],
     })),
-  };
-}
-
-function createInputState(
-  pointers: InputPointerState[],
-  keyboard: InputKeyboardState,
-  gamepads: InputGamepadState[],
-): InputState {
-  return {
-    pointers,
-    keyboard,
-    gamepads,
   };
 }
