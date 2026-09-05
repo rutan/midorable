@@ -87,8 +87,7 @@ export class Loader {
   private _onDispose: (() => void) | null;
 
   private _disposed = false;
-  private _cache: Map<string, Asset> = new Map();
-  private _cacheTypes: Map<string, AssetSpec['type']> = new Map();
+  private _cache = new Map<string, { asset: Asset; type: AssetSpec['type'] }>();
   private _inFlight: Map<string, InFlightEntry> = new Map();
 
   constructor(platform: Platform, config: LoaderConfig = {}) {
@@ -115,7 +114,7 @@ export class Loader {
   get(key: string): Asset | undefined {
     this._ensureActive();
 
-    return this._cache.get(key) || undefined;
+    return this._cache.get(key)?.asset;
   }
 
   /**
@@ -139,7 +138,7 @@ export class Loader {
     const key = options?.key ?? spec.src;
     this._ensureKeyTypeMatches(key, spec.type);
     const cached = this._cache.get(key);
-    if (cached !== undefined) return Promise.resolve(cached as ResolvedAsset<TSpec>);
+    if (cached !== undefined) return Promise.resolve(cached.asset as ResolvedAsset<TSpec>);
 
     let entry = this._inFlight.get(key);
     if (!entry) {
@@ -147,8 +146,7 @@ export class Loader {
       const promise = this._loadAssetWithRetry(spec, options?.retry, controller.signal)
         .then((asset) => {
           this._ensureLoadedAssetTypeMatches(spec, asset);
-          this._cache.set(key, asset);
-          this._cacheTypes.set(key, spec.type);
+          this._cache.set(key, { asset, type: spec.type });
           return asset;
         })
         .finally(() => {
@@ -338,9 +336,8 @@ export class Loader {
     if (this._disposed) return;
 
     for (const [key, cache] of this._cache.entries()) {
-      if (cache === asset) {
+      if (cache.asset === asset) {
         this._cache.delete(key);
-        this._cacheTypes.delete(key);
         break;
       }
     }
@@ -355,10 +352,9 @@ export class Loader {
     if (this._disposed) return;
 
     for (const cache of this._cache.values()) {
-      this._platform.assets.unload(cache);
+      this._platform.assets.unload(cache.asset);
     }
     this._cache.clear();
-    this._cacheTypes.clear();
   }
 
   /**
@@ -372,7 +368,6 @@ export class Loader {
     } finally {
       this._disposed = true;
       this._cache.clear();
-      this._cacheTypes.clear();
       this._inFlight.clear();
       this._onDispose?.();
       this._onDispose = null;
@@ -386,7 +381,7 @@ export class Loader {
   }
 
   private _ensureKeyTypeMatches(key: string, type: AssetSpec['type']) {
-    const cachedType = this._cacheTypes.get(key);
+    const cachedType = this._cache.get(key)?.type;
     if (cachedType !== undefined && cachedType !== type) {
       throw new Error(`Asset key "${key}" is already cached as ${cachedType}, but ${type} was requested`);
     }

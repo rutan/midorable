@@ -368,19 +368,11 @@ function hasSceneViewInitializer(view: DisplayObject): view is DisplayObject & {
   return typeof (view as { init?: unknown }).init === 'function';
 }
 
-const TARGET_METHODS = ['get'] as const;
-
 function createProxyLoader(loader: Loader, parentLoader: Loader) {
   return new Proxy(loader, {
     get(target, prop, receiver) {
-      if (TARGET_METHODS.includes(prop as any)) {
-        return (...args: any[]) => {
-          const result = (target as any)[prop](...args);
-          if (result !== undefined) {
-            return result;
-          }
-          return (parentLoader as any)[prop](...args);
-        };
+      if (prop === 'get') {
+        return (key: string) => target.get(key) ?? parentLoader.get(key);
       }
       return Reflect.get(target, prop, receiver);
     },

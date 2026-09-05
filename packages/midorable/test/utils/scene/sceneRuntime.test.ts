@@ -183,6 +183,44 @@ describe('SceneRouter runtime', () => {
     expect(firstLoader.disposed).toBe(true);
   });
 
+  it('falls back to parent assets while keeping scene assets and disposal local', async () => {
+    const { platform } = createMockPlatform();
+    const app = new App({ platform });
+    const root = new DisplayObject({ context: app.context });
+    const parentAsset = await app.context.loader.load(imageAsset('parent.png'), { key: 'shared' });
+    let sceneLoader!: AppContext['loader'];
+    const router = createSceneRouter<{ first: undefined; second: undefined }>();
+    router.setup({
+      root,
+      context: app.context,
+      routes: {
+        first: {
+          create({ context }) {
+            sceneLoader = context.loader;
+            return new DisplayObject({ context });
+          },
+        },
+        second: {
+          create: ({ context }) => new DisplayObject({ context }),
+        },
+      },
+    });
+
+    await router.goTo('first');
+    expect(sceneLoader.get('shared')).toBe(parentAsset);
+    expect(sceneLoader.get('missing')).toBeUndefined();
+
+    const localAsset = await sceneLoader.load(imageAsset('scene.png'), { key: 'shared' });
+    expect(sceneLoader.get('shared')).toBe(localAsset);
+    expect(app.context.loader.get('shared')).toBe(parentAsset);
+
+    await router.goTo('second');
+    expect(sceneLoader.disposed).toBe(true);
+    expect(() => sceneLoader.get('shared')).toThrow('Loader has been disposed');
+    expect(platform.assets.unload).toHaveBeenCalledExactlyOnceWith(localAsset);
+    expect(app.context.loader.get('shared')).toBe(parentAsset);
+  });
+
   it('preloads scene assets and emits loading state changes', async () => {
     const { platform } = createMockPlatform();
     const app = new App({ platform });
