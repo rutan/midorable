@@ -1,7 +1,7 @@
 import {
   createWebGlPlatform,
   registerPromptInputFeature,
-  registerStorageFeature,
+  registerSaveDataFeature,
 } from '@rutan/midorable-platform-browser';
 import { createCanvasPlatform } from '@rutan/midorable-platform-browser/canvas';
 import { createWebGpuPlatform } from '@rutan/midorable-platform-browser/webgpu';
@@ -58,9 +58,7 @@ async function createPlatform(platform: string, root: HTMLElement) {
   const gameRoot = document.getElementById('root');
   if (!gameRoot) throw new Error('root element not found');
   const platformInstance = await createPlatform(platform, gameRoot);
-  registerStorageFeature(platformInstance, {
-    prefix: 'midorable-example::',
-  });
+  registerSaveDataFeature(platformInstance, { namespace: 'midorable-example' });
   registerPromptInputFeature(platformInstance);
   await launch(platformInstance);
 })().catch((error: unknown) => {

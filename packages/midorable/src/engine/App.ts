@@ -394,12 +394,12 @@ export class App {
    *
    * @example
    * ```ts
-   * // ストレージへの保存の例
-   * const storageFeature = app.getFeature('system.storage');
-   * if (storageFeature) {
-   *   await storageFeature.setItem('key', 'value');
+   * // ゲームのセーブデータを保存する例
+   * const saveDataFeature = app.getFeature('system.saveData');
+   * if (saveDataFeature) {
+   *   await saveDataFeature.save('value');
    * } else {
-   *  console.warn('Storage feature is not supported on this platform');
+   *  console.warn('Save data feature is not supported on this platform');
    * }
    * ```
    */

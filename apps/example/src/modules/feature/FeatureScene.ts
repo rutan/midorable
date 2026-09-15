@@ -8,7 +8,6 @@ const BUTTON_GAP = 14;
 const BUTTON_START_X = 40;
 const BUTTON_START_Y = 80;
 const BUTTON_COLUMN_COUNT = 2;
-const STORAGE_KEY = 'feature-demo-text';
 
 export const FeatureSceneDef = sceneRouter.defineScene('feature', {
   create({ context }) {
@@ -61,9 +60,9 @@ export class FeatureSceneView extends DisplayObject {
         onClick: () => this._handleOpenUrlClick(),
       },
       {
-        label: 'Storage',
-        enabled: this.context.app.getFeature('system.storage') !== undefined,
-        onClick: () => this._handleStorageClick(),
+        label: 'Save Data',
+        enabled: this.context.app.getFeature('system.saveData') !== undefined,
+        onClick: () => this._handleSaveDataClick(),
       },
       {
         label: 'Clipboard',
@@ -143,20 +142,19 @@ export class FeatureSceneView extends DisplayObject {
     this._logScreenSprite.writeLine('url: https://github.com/rutan/midorable');
   }
 
-  private async _handleStorageClick() {
-    const storageFeature = this.context.app.getFeature('system.storage');
-    if (!storageFeature) {
-      this._logScreenSprite.writeLine('system.storage is not supported.');
+  private async _handleSaveDataClick() {
+    const saveDataFeature = this.context.app.getFeature('system.saveData');
+    if (!saveDataFeature) {
+      this._logScreenSprite.writeLine('system.saveData is not supported.');
       return;
     }
 
     const value = `saved at ${new Date().toLocaleTimeString()}`;
-    await storageFeature.setItem(STORAGE_KEY, value);
-    const loadedValue = await storageFeature.getItem(STORAGE_KEY);
+    await saveDataFeature.save(value);
+    const loadedValue = await saveDataFeature.load();
 
-    this._logScreenSprite.writeLine('system.storage');
-    this._logScreenSprite.writeLine(`key: ${STORAGE_KEY}`);
-    this._logScreenSprite.writeLine(`value: ${loadedValue ?? 'null'}`);
+    this._logScreenSprite.writeLine('system.saveData');
+    this._logScreenSprite.writeLine(`value: ${loadedValue}`);
   }
 
   private async _handleClipboardClick() {

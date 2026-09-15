@@ -17,9 +17,9 @@ export interface StandardPlatformFeatureRegistry {
   'system.openUrl': SystemOpenUrlFeature;
 
   /**
-   * 永続的なストレージ機能
+   * ゲームのセーブデータを読み書きする機能
    */
-  'system.storage': SystemStorageFeature;
+  'system.saveData': SystemSaveDataFeature;
 
   /**
    * クリップボードへのアクセス機能
@@ -64,27 +64,19 @@ export interface SystemFontFeature {
  */
 export type SystemOpenUrlFeature = (url: string) => Promise<boolean>;
 
-export interface SystemStorageFeature {
+/**
+ * ゲームごとに1つの永続データ領域を文字列として読み書きする機能。
+ */
+export interface SystemSaveDataFeature {
   /**
-   * 値の取得
-   * @param key - 取得したい値のキー
+   * ゲームのセーブデータを読み込む。未保存の場合は空文字列を返す。
    */
-  getItem(key: string): Promise<string | null>;
+  load(): Promise<string>;
   /**
-   * 値の設定
-   * @param key - 設定する値のキー
-   * @param value - 設定する値
+   * ゲームのセーブデータ全体を上書きする。
+   * @param data - 保存する文字列データ
    */
-  setItem(key: string, value: string): Promise<void>;
-  /**
-   * 値の削除
-   * @param key - 削除する値のキー
-   */
-  removeItem(key: string): Promise<void>;
-  /**
-   * すべての値をクリア
-   */
-  clear(): Promise<void>;
+  save(data: string): Promise<void>;
 }
 
 export interface SystemClipboardFeature {
