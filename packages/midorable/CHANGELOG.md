@@ -1,5 +1,15 @@
 # @rutan/midorable
 
+## 0.3.0
+
+### Minor Changes
+
+- [#13](https://github.com/rutan/midorable/pull/13) [`676eadf`](https://github.com/rutan/midorable/commit/676eadf568e456f0ccebbb12aa9b445fa36f3e86) Thanks [@rutan](https://github.com/rutan)! - implement system.saveData feature
+
+### Patch Changes
+
+- [#11](https://github.com/rutan/midorable/pull/11) [`fb816cd`](https://github.com/rutan/midorable/commit/fb816cd6f97fb85d7fc64542aec531758c9e8924) Thanks [@rutan](https://github.com/rutan)! - slim code
+
 ## 0.2.0
 
 ### Minor Changes
