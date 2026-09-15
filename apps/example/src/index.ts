@@ -58,7 +58,7 @@ async function createPlatform(platform: string, root: HTMLElement) {
   const gameRoot = document.getElementById('root');
   if (!gameRoot) throw new Error('root element not found');
   const platformInstance = await createPlatform(platform, gameRoot);
-  registerSaveDataFeature(platformInstance);
+  registerSaveDataFeature(platformInstance, { namespace: 'midorable-example' });
   registerPromptInputFeature(platformInstance);
   await launch(platformInstance);
 })().catch((error: unknown) => {

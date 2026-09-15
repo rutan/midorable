@@ -47,7 +47,7 @@ describe('BrowserSaveDataBackend', () => {
 
     beforeEach(() => {
       scenario.setup();
-      saveData = new BrowserSaveDataBackend();
+      saveData = new BrowserSaveDataBackend({ namespace: 'test-game' });
     });
 
     it('loads an empty string before saving', async () => {
@@ -75,13 +75,43 @@ describe('BrowserSaveDataBackend', () => {
   it('persists data across instances in one localStorage slot without changing other data', async () => {
     const data = stubLocalStorage();
     data.set('other-game-data', 'untouched');
-    const saveData = new BrowserSaveDataBackend();
+    const saveData = new BrowserSaveDataBackend({ namespace: 'test-game' });
 
     await saveData.save('foo');
     await saveData.save('bar');
 
-    await expect(new BrowserSaveDataBackend().load()).resolves.toBe('bar');
+    await expect(new BrowserSaveDataBackend({ namespace: 'test-game' }).load()).resolves.toBe('bar');
+    expect(data.get('test-game')).toBe('bar');
     expect(data.size).toBe(2);
     expect(data.get('other-game-data')).toBe('untouched');
+  });
+
+  it('isolates games sharing localStorage', async () => {
+    stubLocalStorage();
+    const firstGame = new BrowserSaveDataBackend({ namespace: 'first-game' });
+    const secondGame = new BrowserSaveDataBackend({ namespace: 'second-game' });
+
+    await firstGame.save('first progress');
+    await expect(secondGame.load()).resolves.toBe('');
+    await secondGame.save('second progress');
+    await expect(firstGame.load()).resolves.toBe('first progress');
+    await firstGame.save('updated progress');
+    await expect(secondGame.load()).resolves.toBe('second progress');
+  });
+
+  it('does not read or overwrite the legacy shared key', async () => {
+    const data = stubLocalStorage();
+    data.set('midorable.saveData', 'legacy progress');
+    const saveData = new BrowserSaveDataBackend({ namespace: 'test-game' });
+
+    await expect(saveData.load()).resolves.toBe('');
+    await saveData.save('new progress');
+    expect(data.get('midorable.saveData')).toBe('legacy progress');
+  });
+
+  it.each(['', ' ', '\t\n'])('rejects an empty or whitespace-only namespace: %j', (namespace) => {
+    expect(() => new BrowserSaveDataBackend({ namespace })).toThrow(
+      'Save data namespace must not be empty or whitespace-only',
+    );
   });
 });
