@@ -181,4 +181,33 @@ describe('Loader cache', () => {
     rejectLoad(new Error('cancel test load'));
     await expect(pending).rejects.toThrow('cancel test load');
   });
+
+  it('checks the cached request type even if the returned asset is mutated', async () => {
+    const { platform } = createMockPlatform();
+    const loader = new Loader(platform);
+    const asset: Asset = await loader.load(imageAsset('/hero.png'), { key: 'hero' });
+
+    asset.type = 'audio';
+
+    expect(() => loader.load(audioAsset('/hero.ogg'), { key: 'hero' })).toThrow(
+      'Asset key "hero" is already cached as image, but audio was requested',
+    );
+  });
+
+  it.each(['unload', 'unloadAllAssets'] as const)('allows a different asset type after %s', async (method) => {
+    const { platform } = createMockPlatform();
+    const loader = new Loader(platform);
+    const asset = await loader.load(imageAsset('/hero.png'), { key: 'hero' });
+
+    if (method === 'unload') {
+      await loader.unload(asset);
+    } else {
+      await loader.unloadAllAssets();
+    }
+
+    const replacement = await loader.load(audioAsset('/hero.ogg'), { key: 'hero' });
+    expect(replacement.type).toBe('audio');
+    expect(loader.get('hero')).toBe(replacement);
+    expect(platform.assets.load).toHaveBeenCalledTimes(2);
+  });
 });
