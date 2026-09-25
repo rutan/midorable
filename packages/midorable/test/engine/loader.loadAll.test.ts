@@ -468,3 +468,37 @@ describe('Loader tryLoadAll', () => {
     expect(maxActiveLoads).toBe(2);
   });
 });
+
+describe('batch loading during disposal', () => {
+  it.each(['loadAll', 'tryLoadAll'] as const)('cancels pending and queued work in %s', async (method) => {
+    const { platform } = createMockPlatform();
+    const backend = Promise.withResolvers<ImageAsset>();
+    const loader = new Loader(platform);
+    const started = Promise.withResolvers<void>();
+    platform.assets.load = vi.fn(() => {
+      started.resolve();
+      return backend.promise;
+    });
+    const pending = loader[method](
+      {
+        first: imageAsset('/first.png'),
+        queued: imageAsset('/queued.png'),
+      },
+      { concurrency: 1 },
+    );
+    await started.promise;
+    const disposing = loader.dispose();
+    if (method === 'loadAll') {
+      await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    } else {
+      await expect(pending).resolves.toMatchObject({
+        first: { ok: false, error: { name: 'AbortError' } },
+        queued: { ok: false, error: { name: 'AbortError' } },
+      });
+    }
+    expect(platform.assets.load).toHaveBeenCalledTimes(1);
+    backend.resolve(createImageAsset('late'));
+    await disposing;
+    expect(platform.assets.unload).toHaveBeenCalledTimes(1);
+  });
+});

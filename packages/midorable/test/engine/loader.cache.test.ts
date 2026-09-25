@@ -211,3 +211,49 @@ describe('Loader cache', () => {
     expect(platform.assets.load).toHaveBeenCalledTimes(2);
   });
 });
+
+it('keeps the shared request alive when one caller cancels', async () => {
+  const { platform } = createMockPlatform();
+  const asset = createImageAsset('shared');
+  const backend = Promise.withResolvers<typeof asset>();
+  platform.assets.load = vi.fn(() => backend.promise);
+  const loader = new Loader(platform);
+  const controller = new AbortController();
+  const first = loader.load(imageAsset('/shared.png'), { signal: controller.signal });
+  const second = loader.load(imageAsset('/shared.png'));
+  controller.abort();
+  await expect(first).rejects.toMatchObject({ name: 'AbortError' });
+  expect(platform.assets.load.mock.calls[0]![1]!.signal!.aborted).toBe(false);
+  backend.resolve(asset);
+  await expect(second).resolves.toBe(asset);
+  expect(loader.get('/shared.png')).toBe(asset);
+  expect(platform.assets.unload).not.toHaveBeenCalled();
+  await loader.dispose();
+});
+
+it('does not let an old cancelled request remove its in-flight replacement', async () => {
+  const { platform } = createMockPlatform();
+  const oldAsset = createImageAsset('old');
+  const newAsset = createImageAsset('new');
+  const oldBackend = Promise.withResolvers<typeof oldAsset>();
+  const newBackend = Promise.withResolvers<typeof newAsset>();
+  const oldUnloaded = Promise.withResolvers<void>();
+  platform.assets.load = vi.fn().mockReturnValueOnce(oldBackend.promise).mockReturnValueOnce(newBackend.promise);
+  platform.assets.unload.mockImplementation(() => oldUnloaded.resolve());
+  const loader = new Loader(platform);
+  const controller = new AbortController();
+  const first = loader.load(imageAsset('/same.png'), { signal: controller.signal });
+  controller.abort();
+  await expect(first).rejects.toMatchObject({ name: 'AbortError' });
+  const second = loader.load(imageAsset('/same.png'));
+  oldBackend.resolve(oldAsset);
+  await oldUnloaded.promise;
+  const third = loader.load(imageAsset('/same.png'));
+  expect(platform.assets.load).toHaveBeenCalledTimes(2);
+  newBackend.resolve(newAsset);
+  await expect(second).resolves.toBe(newAsset);
+  await expect(third).resolves.toBe(newAsset);
+  expect(loader.get('/same.png')).toBe(newAsset);
+  expect(platform.assets.unload).toHaveBeenCalledExactlyOnceWith(oldAsset);
+  await loader.dispose();
+});

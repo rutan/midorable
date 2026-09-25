@@ -7,245 +7,206 @@ export class BrowserResourceStore {
   private _audios = new Map<string, Promise<AudioAsset>>();
   private _texts = new Map<string, Promise<TextAsset>>();
   private _binaries = new Map<string, Promise<BinaryAsset>>();
-  private _imageRefs = new Map<string, number>();
-  private _audioRefs = new Map<string, number>();
-  private _textRefs = new Map<string, number>();
-  private _binaryRefs = new Map<string, number>();
+  private _loads = new WeakMap<Promise<Asset>, SharedLoad>();
+  private _releases = new WeakMap<Asset, () => boolean>();
 
   async loadImage(url: string, signal?: AbortSignal): Promise<ImageAsset> {
-    const cached = this._images.get(url);
-    if (cached) {
-      return this._retainCached(this._images, this._imageRefs, url, cached, cloneImageAsset, signal);
-    }
-
-    const pending = (async () => {
-      throwIfAborted(signal);
-      const image = new Image();
-      const decoded = new Promise<void>((resolve, reject) => {
-        const cleanup = () => {
-          image.onload = null;
-          image.onerror = null;
-          signal?.removeEventListener('abort', onAbort);
-        };
-        const onAbort = () => {
-          image.src = '';
-          cleanup();
-          reject(createAbortError());
-        };
-        image.onload = () => {
-          cleanup();
-          resolve();
-        };
-        image.onerror = () => {
-          cleanup();
-          reject(new Error(`Failed to load image asset: ${url}`));
-        };
-        if (signal) {
-          signal.addEventListener('abort', onAbort, { once: true });
-        }
-      });
-      image.src = url;
-      await decoded;
-      return {
-        id: url,
-        type: 'image',
-        width: image.naturalWidth || image.width,
-        height: image.naturalHeight || image.height,
-        source: image,
-      } satisfies ImageAsset;
-    })().catch((error) => {
-      this._images.delete(url);
-      this._imageRefs.delete(url);
-      throw error;
-    });
-
-    this._images.set(url, pending);
-    this._imageRefs.set(url, 1);
-    return pending.then(cloneImageAsset);
+    return this._load(
+      this._images,
+      url,
+      async (signal) => {
+        const image = new Image();
+        const decoded = new Promise<void>((resolve, reject) => {
+          const cleanup = () => {
+            image.onload = null;
+            image.onerror = null;
+            signal?.removeEventListener('abort', onAbort);
+          };
+          const onAbort = () => {
+            image.src = '';
+            cleanup();
+            reject(createAbortError());
+          };
+          image.onload = () => {
+            cleanup();
+            resolve();
+          };
+          image.onerror = () => {
+            cleanup();
+            reject(new Error(`Failed to load image asset: ${url}`));
+          };
+          if (signal) {
+            signal.addEventListener('abort', onAbort, { once: true });
+          }
+        });
+        image.src = url;
+        await decoded;
+        return {
+          id: url,
+          type: 'image',
+          width: image.naturalWidth || image.width,
+          height: image.naturalHeight || image.height,
+          source: image,
+        } satisfies ImageAsset;
+      },
+      signal,
+    );
   }
 
   async loadAudio(url: string, loadAudio: LoadAudio, signal?: AbortSignal): Promise<AudioAsset> {
-    const cached = this._audios.get(url);
-    if (cached) {
-      return this._retainCached(this._audios, this._audioRefs, url, cached, cloneAudioAsset, signal);
-    }
-
-    const pending = loadAudio(url, signal).catch((error) => {
-      this._audios.delete(url);
-      this._audioRefs.delete(url);
-      throw error;
-    });
-    this._audios.set(url, pending);
-    this._audioRefs.set(url, 1);
-    return pending.then(cloneAudioAsset);
+    return this._load(this._audios, url, (sharedSignal) => loadAudio(url, sharedSignal), signal);
   }
 
   async loadText(url: string, signal?: AbortSignal): Promise<TextAsset> {
-    const cached = this._texts.get(url);
-    if (cached) {
-      return this._retainCached(this._texts, this._textRefs, url, cached, cloneTextAsset, signal);
-    }
-
-    const pending = (async () => {
-      const response = await fetch(url, { signal });
-      if (!response.ok) {
-        throw new Error(`Failed to load text asset: ${url} (${response.status} ${response.statusText})`);
-      }
-      const content = await response.text();
-      return { id: url, type: 'text', content } satisfies TextAsset;
-    })().catch((error) => {
-      this._texts.delete(url);
-      this._textRefs.delete(url);
-      throw error;
-    });
-
-    this._texts.set(url, pending);
-    this._textRefs.set(url, 1);
-    return pending.then(cloneTextAsset);
+    return this._load(
+      this._texts,
+      url,
+      async (signal) => {
+        const response = await fetch(url, { signal });
+        if (!response.ok) {
+          throw new Error(`Failed to load text asset: ${url} (${response.status} ${response.statusText})`);
+        }
+        const content = await response.text();
+        return { id: url, type: 'text', content } satisfies TextAsset;
+      },
+      signal,
+    );
   }
 
   async loadBinary(url: string, signal?: AbortSignal): Promise<BinaryAsset> {
-    const cached = this._binaries.get(url);
-    if (cached) {
-      return this._retainCached(this._binaries, this._binaryRefs, url, cached, cloneBinaryAsset, signal);
-    }
-
-    const pending = (async () => {
-      const response = await fetch(url, { signal });
-      if (!response.ok) {
-        throw new Error(`Failed to load binary asset: ${url} (${response.status} ${response.statusText})`);
-      }
-      const content = await response.arrayBuffer();
-      return { id: url, type: 'binary', content } satisfies BinaryAsset;
-    })().catch((error) => {
-      this._binaries.delete(url);
-      this._binaryRefs.delete(url);
-      throw error;
-    });
-
-    this._binaries.set(url, pending);
-    this._binaryRefs.set(url, 1);
-    return pending.then(cloneBinaryAsset);
+    return this._load(
+      this._binaries,
+      url,
+      async (signal) => {
+        const response = await fetch(url, { signal });
+        if (!response.ok) {
+          throw new Error(`Failed to load binary asset: ${url} (${response.status} ${response.statusText})`);
+        }
+        const content = await response.arrayBuffer();
+        return { id: url, type: 'binary', content } satisfies BinaryAsset;
+      },
+      signal,
+    );
   }
 
   unload(asset: Asset): boolean {
-    switch (asset.type) {
-      case 'image':
-        return this._release(this._images, this._imageRefs, asset.id);
-      case 'audio':
-        return this._release(this._audios, this._audioRefs, asset.id);
-      case 'text':
-        return this._release(this._texts, this._textRefs, asset.id);
-      case 'binary':
-        return this._release(this._binaries, this._binaryRefs, asset.id);
-      default:
-        return false;
+    const release = this._releases.get(asset);
+    if (!release) return false;
+    this._releases.delete(asset);
+    return release();
+  }
+
+  clear(): void {
+    for (const entries of [this._images, this._audios, this._texts, this._binaries]) {
+      for (const pending of entries.values()) {
+        const state = this._loads.get(pending);
+        if (state && !state.settled) state.controller.abort();
+      }
+      entries.clear();
     }
+    this._releases = new WeakMap();
   }
 
-  clear() {
-    this._images.clear();
-    this._audios.clear();
-    this._texts.clear();
-    this._binaries.clear();
-    this._imageRefs.clear();
-    this._audioRefs.clear();
-    this._textRefs.clear();
-    this._binaryRefs.clear();
-  }
-
-  private _retain(refs: Map<string, number>, url: string) {
-    refs.set(url, (refs.get(url) ?? 0) + 1);
-  }
-
-  private _retainCached<TAsset>(
-    entries: Map<string, Promise<TAsset>>,
-    refs: Map<string, number>,
+  private _load<T extends Asset>(
+    entries: Map<string, Promise<T>>,
     url: string,
-    cached: Promise<TAsset>,
-    clone: (asset: TAsset) => TAsset,
+    load: (signal: AbortSignal) => Promise<T>,
     signal?: AbortSignal,
-  ): Promise<TAsset> {
-    if (signal?.aborted) {
-      return Promise.reject(createAbortError());
-    }
+  ): Promise<T> {
+    if (signal?.aborted) return Promise.reject(createAbortError());
 
-    this._retain(refs, url);
-    const cloned = cached.then(clone);
-    if (!signal) {
-      return cloned;
+    let pending = entries.get(url);
+    let shared = pending && this._loads.get(pending);
+    if (!pending || !shared) {
+      const controller = new AbortController();
+      const state: SharedLoad = {
+        controller,
+        refs: 0,
+        consumers: 0,
+        settled: false,
+        remove: () => {
+          if (entries.get(url) === pending) entries.delete(url);
+        },
+      };
+      pending = (async () => load(controller.signal))().then(
+        (asset) => {
+          state.settled = true;
+          return asset;
+        },
+        (error) => {
+          state.settled = true;
+          state.remove();
+          throw error;
+        },
+      );
+      shared = state;
+      entries.set(url, pending);
+      this._loads.set(pending, shared);
     }
+    const state = shared;
+    state.refs += 1;
+    state.consumers += 1;
+    const release = () => {
+      state.refs -= 1;
+      if (state.refs > 0) return false;
+      state.remove();
+      return true;
+    };
 
-    return new Promise<TAsset>((resolve, reject) => {
-      let settled = false;
+    return new Promise<T>((resolve, reject) => {
+      let completed = false;
+      let cancelled = false;
       const cleanup = () => {
-        signal.removeEventListener('abort', onAbort);
-        settled = true;
+        completed = true;
+        signal?.removeEventListener('abort', onAbort);
+        if (!cancelled) state.consumers -= 1;
       };
       const onAbort = () => {
-        if (settled) {
+        if (completed || cancelled) return;
+        cancelled = true;
+        state.consumers -= 1;
+        if (state.consumers === 0) {
+          if (!state.settled) {
+            state.remove();
+            state.controller.abort();
+          }
+          // The last consumer waits for backend cleanup. If abort is ignored,
+          // deliver the asset so its Loader can unload it before dispose completes.
           return;
         }
         cleanup();
-        this._release(entries, refs, url);
+        release();
         reject(createAbortError());
       };
-
-      signal.addEventListener('abort', onAbort, { once: true });
-      cloned.then(
+      signal?.addEventListener('abort', onAbort, { once: true });
+      pending.then(
         (asset) => {
-          if (settled) {
-            return;
-          }
+          if (completed) return;
           cleanup();
-          resolve(asset);
+          const owned = { ...asset };
+          this._releases.set(owned, release);
+          resolve(owned);
         },
         (error) => {
-          if (settled) {
-            return;
-          }
+          if (completed) return;
           cleanup();
+          release();
           reject(error);
         },
       );
+      if (signal?.aborted) onAbort();
     });
   }
-
-  private _release<TAsset>(entries: Map<string, Promise<TAsset>>, refs: Map<string, number>, url: string): boolean {
-    const count = refs.get(url);
-    if (count === undefined) {
-      return false;
-    }
-    if (count > 1) {
-      refs.set(url, count - 1);
-      return false;
-    }
-    refs.delete(url);
-    entries.delete(url);
-    return true;
-  }
 }
 
-function cloneImageAsset(asset: ImageAsset): ImageAsset {
-  return { ...asset };
-}
-
-function cloneAudioAsset(asset: AudioAsset): AudioAsset {
-  return { ...asset };
-}
-
-function cloneTextAsset(asset: TextAsset): TextAsset {
-  return { ...asset };
-}
-
-function cloneBinaryAsset(asset: BinaryAsset): BinaryAsset {
-  return { ...asset };
-}
-
-function throwIfAborted(signal?: AbortSignal) {
-  if (signal?.aborted) {
-    throw createAbortError();
-  }
+interface SharedLoad {
+  controller: AbortController;
+  /** Pending acquisitions and assets retained by callers. */
+  refs: number;
+  /** Callers still waiting without having cancelled. */
+  consumers: number;
+  settled: boolean;
+  remove: () => void;
 }
 
 function createAbortError(): Error {

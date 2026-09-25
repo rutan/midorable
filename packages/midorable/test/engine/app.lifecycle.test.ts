@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../../src/engine/App';
-import { createMockPlatform } from '../helpers/createMockPlatform';
+import { createImageAsset, createMockPlatform } from '../helpers/createMockPlatform';
 
 describe('App lifecycle', () => {
   it('start is idempotent and starts loop once', async () => {
@@ -111,4 +111,23 @@ describe('App lifecycle', () => {
 
     expect(updateSpy).toHaveBeenCalledTimes(4);
   });
+});
+
+it('waits for late assets to be unloaded before disposing the platform', async () => {
+  const { platform } = createMockPlatform();
+  const asset = createImageAsset('late');
+  const backend = Promise.withResolvers<typeof asset>();
+  platform.assets.load = vi.fn(() => backend.promise);
+  const app = new App({ platform });
+  const pending = app.context.loader.load({ type: 'image', src: '/late.png' });
+  const disposing = app.dispose();
+  await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+  expect(platform.dispose).not.toHaveBeenCalled();
+  platform.assets.unload.mockImplementation(() => {
+    expect(platform.dispose).not.toHaveBeenCalled();
+  });
+  backend.resolve(asset);
+  await disposing;
+  expect(platform.assets.unload).toHaveBeenCalledExactlyOnceWith(asset);
+  expect(platform.dispose).toHaveBeenCalledTimes(1);
 });
