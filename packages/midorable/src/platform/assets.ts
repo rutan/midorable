@@ -170,6 +170,9 @@ export interface AssetsBackend {
    *
    * `options.signal` が abort された場合は、可能な限り読み込みを中断し、`AbortError` 相当のエラーで
    * reject する。すでに完了した読み込みや中断不能な読み込みでは、Platform の制約に応じて完了してもよい。
+   * 中断後に成功したアセットは Loader が unload する。reject する場合は、その要求のリソースを
+   * 解放するか、別の利用者へ管理を引き継いでから完了すること。
+   * 複数の要求で読み込みを共有する場合、一つの要求の中断で他の利用者の読み込みを中断しないこと。
    *
    * @param spec - 読み込むアセット定義
    * @param options - オプション

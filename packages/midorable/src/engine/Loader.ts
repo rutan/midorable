@@ -87,6 +87,9 @@ export class Loader {
   private _onDispose: (() => void) | null;
 
   private _disposed = false;
+  private _disposePromise: Promise<void> | null = null;
+  private _pendingLoads = new Set<Promise<Asset>>();
+  private _cleanupErrors: unknown[] = [];
   private _cache = new Map<string, { asset: Asset; type: AssetSpec['type'] }>();
   private _inFlight: Map<string, InFlightEntry> = new Map();
 
@@ -96,7 +99,7 @@ export class Loader {
   }
 
   /**
-   * このローダーが破棄されているかどうか
+   * このローダーの破棄が開始されているかどうか
    */
   get disposed(): boolean {
     return this._disposed;
@@ -126,7 +129,7 @@ export class Loader {
    *
    * @param spec - ロードするアセットの定義
    * @param options - オプション
-   * @returns ロードされたアセット
+   * @returns ロードされたアセット。待機中に dispose された場合は AbortError で reject する。
    */
   load<TSpec extends AssetSpec>(spec: TSpec, options?: LoadOptions): Promise<ResolvedAsset<TSpec>> {
     this._ensureActive();
@@ -141,17 +144,28 @@ export class Loader {
     if (cached !== undefined) return Promise.resolve(cached.asset as ResolvedAsset<TSpec>);
 
     let entry = this._inFlight.get(key);
-    if (!entry) {
+    if (!entry || entry.controller.signal.aborted) {
       const controller = new AbortController();
       const promise = this._loadAssetWithRetry(spec, options?.retry, controller.signal)
         .then((asset) => {
+          if (this._disposed || controller.signal.aborted) {
+            try {
+              this._platform.assets.unload(asset);
+            } catch (error) {
+              this._cleanupErrors.push(error);
+            }
+            throw createAbortError();
+          }
           this._ensureLoadedAssetTypeMatches(spec, asset);
           this._cache.set(key, { asset, type: spec.type });
           return asset;
         })
         .finally(() => {
           entry!.settled = true;
-          this._inFlight.delete(key);
+          if (this._inFlight.get(key) === entry) {
+            this._inFlight.delete(key);
+          }
+          this._pendingLoads.delete(promise);
         });
 
       entry = {
@@ -162,6 +176,7 @@ export class Loader {
         settled: false,
       };
       this._inFlight.set(key, entry);
+      this._pendingLoads.add(promise);
     }
 
     return this._attachToInFlight<ResolvedAsset<TSpec>>(entry, options?.signal);
@@ -173,6 +188,7 @@ export class Loader {
    * @remarks
    * 内部的には load() を呼び出しているため、同じキーでの重複したロード要求はまとめられる。
    * 並列でのロード数は options.concurrency で制御できる。
+   * 実行中に dispose された場合は AbortError で reject する。
    *
    * @param definitions - ロードするアセットの定義
    * @param options - オプション
@@ -193,6 +209,7 @@ export class Loader {
     options?: LoadAllOptions,
   ): Promise<ResolvedAssets<TAssets>> {
     const settled = await this._loadAllInternal(definitions, options, { rejectOnFirstError: true });
+    if (this._disposed) throw createAbortError();
     return Object.fromEntries(
       Object.entries(settled).map(([key, result]) => {
         if (!result.ok) {
@@ -208,7 +225,9 @@ export class Loader {
    *
    * @remarks
    * 内部的には load() を呼び出しているため、同じキーでの重複したロード要求はまとめられる。
-   * `loadAll` と異なり、個々のアセットのロード結果を成功・失敗に関わらず返す。全体のロードが失敗することはない。
+   * `loadAll` と異なり、個々のアセットのロード結果を成功・失敗に関わらず返す。
+   * 実行中に dispose された場合、未完了・未着手の項目は AbortError の失敗結果になる。
+   * 取得済みの項目を含め、この Loader が所有するアセットは dispose により無効になる。
    *
    * @param definitions - ロードするアセットの定義
    * @param options - オプション
@@ -247,6 +266,7 @@ export class Loader {
         return await this._platform.assets.load(spec, { signal });
       } catch (error) {
         lastError = error;
+        throwIfAborted(signal);
         if (attempt === maxRetries || isAbortError(error)) break;
         if (delay > 0) {
           await this._sleep(delay, signal);
@@ -267,46 +287,47 @@ export class Loader {
       }
     };
 
-    if (!signal) {
-      return entry.promise.finally(release) as Promise<T>;
-    }
-
-    if (signal.aborted) {
-      release();
-      return Promise.reject(createAbortError());
-    }
-
     return new Promise<T>((resolve, reject) => {
       let completed = false;
+      const sharedSignal = entry.controller.signal;
       const cleanup = () => {
-        signal.removeEventListener('abort', onAbort);
-        if (!completed) {
-          completed = true;
-          release();
-        }
+        completed = true;
+        signal?.removeEventListener('abort', onAbort);
+        sharedSignal.removeEventListener('abort', onAbort);
+        release();
       };
       const onAbort = () => {
+        if (completed) return;
         cleanup();
         reject(createAbortError());
       };
 
-      signal.addEventListener('abort', onAbort, { once: true });
+      signal?.addEventListener('abort', onAbort, { once: true });
+      sharedSignal.addEventListener('abort', onAbort, { once: true });
+      // Observe the backend even after cancellation so that late failures are handled.
       entry.promise.then(
         (asset) => {
+          if (completed) return;
+          if (this._disposed || signal?.aborted || sharedSignal.aborted) {
+            onAbort();
+            return;
+          }
           cleanup();
           resolve(asset as T);
         },
         (error) => {
+          if (completed) return;
           cleanup();
           reject(error);
         },
       );
+      if (this._disposed || signal?.aborted || sharedSignal.aborted) onAbort();
     });
   }
 
   private _sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    throwIfAborted(signal);
     if (ms <= 0) {
-      throwIfAborted(signal);
       return Promise.resolve();
     }
 
@@ -359,18 +380,50 @@ export class Loader {
 
   /**
    * ローダーを破棄
+   *
+   * @remarks
+   * 呼び出し直後から新規要求を拒否し、待機中の load は AbortError で reject する。
+   * backend に中断を要求し、中断できず遅れて取得されたアセットも解放してから完了する。
+   * backend が終了しない場合、この Promise も完了しない。
+   * 複数回呼び出した場合は同じ破棄処理の完了を待つ。
    */
-  async dispose() {
-    if (this._disposed) return;
+  dispose(): Promise<void> {
+    if (this._disposePromise) return this._disposePromise;
 
+    this._disposed = true;
+    // Register the shared completion before abort listeners can reenter dispose().
+    this._disposePromise = Promise.resolve().then(() => this._finishDispose());
+    for (const entry of this._inFlight.values()) {
+      entry.controller.abort();
+    }
+    return this._disposePromise;
+  }
+
+  private async _finishDispose(): Promise<void> {
+    const cached = [...this._cache.values()];
+    this._cache.clear();
+    for (const { asset } of cached) {
+      try {
+        this._platform.assets.unload(asset);
+      } catch (error) {
+        this._cleanupErrors.push(error);
+      }
+    }
+
+    // Includes cancelled loads that have since been replaced under the same key.
+    await Promise.allSettled(this._pendingLoads);
+    this._inFlight.clear();
+    const onDispose = this._onDispose;
+    this._onDispose = null;
     try {
-      await this.unloadAllAssets();
-    } finally {
-      this._disposed = true;
-      this._cache.clear();
-      this._inFlight.clear();
-      this._onDispose?.();
-      this._onDispose = null;
+      onDispose?.();
+    } catch (error) {
+      this._cleanupErrors.push(error);
+    }
+    if (this._cleanupErrors.length > 0) {
+      const errors = this._cleanupErrors;
+      this._cleanupErrors = [];
+      throw new AggregateError(errors, 'Failed to dispose loader');
     }
   }
 
@@ -386,7 +439,8 @@ export class Loader {
       throw new Error(`Asset key "${key}" is already cached as ${cachedType}, but ${type} was requested`);
     }
 
-    const inFlightType = this._inFlight.get(key)?.type;
+    const entry = this._inFlight.get(key);
+    const inFlightType = entry?.controller.signal.aborted ? undefined : entry?.type;
     if (inFlightType !== undefined && inFlightType !== type) {
       throw new Error(`Asset key "${key}" is already loading as ${inFlightType}, but ${type} was requested`);
     }
@@ -442,11 +496,13 @@ export class Loader {
 
         const { key, spec, entry } = assetEntries[currentIndex]!;
         try {
+          if (this._disposed) throw createAbortError();
           const asset = await this.load(spec, {
             key,
             signal: options?.signal,
             retry: options?.retry,
           });
+          if (this._disposed) throw createAbortError();
           progress.completed += 1;
           progress.pending -= 1;
           results[currentIndex] = [key, { ok: true, value: asset } satisfies TryLoadAllResult<any>] as const;
