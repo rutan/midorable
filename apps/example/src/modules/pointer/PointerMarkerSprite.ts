@@ -79,7 +79,6 @@ export class PointerMarkerSprite extends DisplayObject {
 
   private _createLabelSprite() {
     this._labelTexture = this._context.app.createTexture(POINTER_LABEL_TEXTURE_WIDTH, POINTER_LABEL_TEXTURE_HEIGHT);
-    this._labelTexture.isShared = true;
     this._labelSprite = new Sprite({
       context: this._context,
       image: this._labelTexture,

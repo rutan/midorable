@@ -51,12 +51,11 @@ export function createBinaryAsset(id: string): BinaryAsset {
   };
 }
 
-export function createMockTexture(width = 16, height = 16, isShared = false): Texture {
+export function createMockTexture(width = 16, height = 16): Texture {
   return {
     width,
     height,
     source: null,
-    isShared,
     dispose: vi.fn(),
     drawLine: vi.fn(),
     drawRect: vi.fn(),

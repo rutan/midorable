@@ -30,7 +30,7 @@ describe('DisplayObject colorTone', () => {
     });
     const child = new Sprite({
       context,
-      image: createMockTexture(8, 8, true),
+      image: createMockTexture(8, 8),
     });
     root.addChild(child);
     const { renderer, states } = createRendererSpy();
@@ -49,7 +49,7 @@ describe('DisplayObject colorTone', () => {
     });
     const child = new Sprite({
       context,
-      image: createMockTexture(8, 8, true),
+      image: createMockTexture(8, 8),
       colorTone: { r: 255, g: 0, b: 0, a: 0.2 },
     });
     root.addChild(child);

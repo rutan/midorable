@@ -18,6 +18,11 @@ export class PointerStatusPanelSprite extends Sprite {
     });
   }
 
+  dispose() {
+    super.dispose();
+    (this.image as Texture).dispose();
+  }
+
   setSnapshot(snapshot: PointerSnapshot) {
     const texture = this.image as Texture;
 

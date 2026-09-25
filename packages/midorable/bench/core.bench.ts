@@ -436,7 +436,6 @@ function createTexture(width: number, height: number): Texture {
     width,
     height,
     source: null,
-    isShared: false,
     dispose() {},
     drawLine() {},
     drawRect() {},

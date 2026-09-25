@@ -10,6 +10,11 @@ export interface GraphicsBackend {
 
   /**
    * テクスチャを作成する
+   *
+   * @remarks
+   * テクスチャは表示オブジェクトの破棄時に自動破棄されない。
+   * すべての利用先で不要になった時点で、作成者が `dispose()` を呼び出す。
+   *
    * @param width - テクスチャの幅
    * @param height - テクスチャの高さ
    */

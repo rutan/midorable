@@ -6,7 +6,6 @@ export class WebGpuTexture implements Texture {
   width: number;
   height: number;
   source: GPUTexture;
-  isShared = false;
   private _surface: Canvas2DTextureSurface;
   private _device: GPUDevice;
   private _dirty = false;

@@ -1,9 +1,10 @@
-import { DisplayObject, DisplayObjectProps, Sprite } from '@rutan/midorable';
+import { DisplayObject, DisplayObjectProps, Sprite, Texture } from '@rutan/midorable';
 import { GridSprite } from './modules/_share';
 
 export interface StageProps extends DisplayObjectProps {}
 
 export class Stage extends DisplayObject {
+  private _backgroundTexture!: Texture;
   private _mainLayer!: DisplayObject;
 
   constructor(props: StageProps) {
@@ -13,6 +14,11 @@ export class Stage extends DisplayObject {
     this._createMainLayer();
   }
 
+  dispose() {
+    super.dispose();
+    this._backgroundTexture.dispose();
+  }
+
   get mainLayer() {
     return this._mainLayer;
   }
@@ -20,6 +26,7 @@ export class Stage extends DisplayObject {
   private _createBackground() {
     const app = this.context.app;
     const backTexture = app.createTexture(app.width, app.height);
+    this._backgroundTexture = backTexture;
     backTexture.drawRect({
       x: 0,
       y: 0,

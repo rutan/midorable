@@ -8,10 +8,13 @@ export const TextSceneDef = sceneRouter.defineScene('text', {
 });
 
 export class TextSceneView extends DisplayObject {
+  private _texture: Texture;
+
   constructor(props: DisplayObjectProps) {
     super(props);
 
     const texture = this.context.app.createTexture(this.context.app.width, this.context.app.height);
+    this._texture = texture;
 
     const sprite = new Sprite({
       context: this.context,
@@ -84,6 +87,11 @@ export class TextSceneView extends DisplayObject {
       color: { r: 255, g: 255, b: 255, a: 1 },
       align: 'left',
     });
+  }
+
+  dispose() {
+    super.dispose();
+    this._texture.dispose();
   }
 
   private _drawTextWithFrame(texture: Texture, props: Parameters<Texture['drawText']>[0]) {

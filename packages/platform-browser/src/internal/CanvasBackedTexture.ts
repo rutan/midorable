@@ -4,7 +4,6 @@ import { Canvas2DTextureSurface } from '../Canvas2DTextureSurface';
 export class CanvasBackedTexture implements Texture {
   width: number;
   height: number;
-  isShared = false;
   private _surface: Canvas2DTextureSurface;
   private _revision = 0;
 

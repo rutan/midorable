@@ -19,6 +19,8 @@ export interface ShaderSceneViewProps extends DisplayObjectProps {
 }
 
 export class ShaderSceneView extends DisplayObject {
+  private _statusTexture: Texture;
+
   constructor(props: ShaderSceneViewProps) {
     super(props);
 
@@ -35,6 +37,7 @@ export class ShaderSceneView extends DisplayObject {
     this.addChild(sprite);
 
     const texture = this._context.app.createTexture(this._context.app.width, 60);
+    this._statusTexture = texture;
     const statusSprite = new Sprite({
       context: this._context,
       image: texture,
@@ -50,6 +53,11 @@ export class ShaderSceneView extends DisplayObject {
     }
 
     void this._applyFilter(sprite, texture, filterResult);
+  }
+
+  dispose() {
+    super.dispose();
+    this._statusTexture.dispose();
   }
 
   private async _applyFilter(

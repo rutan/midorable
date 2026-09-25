@@ -1,4 +1,4 @@
-import { DisplayObject, type DisplayObjectProps, imageAsset, Sprite } from '@rutan/midorable';
+import { DisplayObject, type DisplayObjectProps, imageAsset, Sprite, Texture } from '@rutan/midorable';
 import { FONT_NAME, sceneRouter, type AssetsOf } from '../_share';
 
 let shouldFailPreloadOnce = true;
@@ -47,12 +47,15 @@ interface PreloadSceneViewProps extends DisplayObjectProps {
 }
 
 class PreloadSceneView extends DisplayObject {
+  private _titleTexture: Texture;
+
   constructor(props: PreloadSceneViewProps) {
     super(props);
 
     shouldFailPreloadOnce = true; // シーン初期化時に毎回失敗するようにリセット
 
     const titleTexture = this.context.app.createTexture(760, 180);
+    this._titleTexture = titleTexture;
     titleTexture.drawText({
       text: 'Preload Demo',
       x: 380,
@@ -117,6 +120,11 @@ class PreloadSceneView extends DisplayObject {
       smooth: false,
     });
     this.addChild(pixelSprite);
+  }
+
+  dispose() {
+    super.dispose();
+    this._titleTexture.dispose();
   }
 }
 
