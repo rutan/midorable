@@ -100,20 +100,6 @@ export class NinePatch extends DisplayObject {
   }
 
   /**
-   * 表示オブジェクトを破棄する
-   *
-   * @remarks
-   * 9パッチ画像のソースが共有テクスチャでない場合、テクスチャも同時に破棄する。
-   * 共有テクスチャの場合や画像アセットの場合は破棄しない。
-   */
-  dispose() {
-    if ('dispose' in this._image && !this._image.isShared) {
-      this._image.dispose();
-    }
-    super.dispose();
-  }
-
-  /**
    * 描画するサイズを設定する
    *
    * @remarks

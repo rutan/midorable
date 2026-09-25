@@ -35,7 +35,6 @@ export class RectangleSceneView extends DisplayObject {
 
     this._textures = COLORS.map((color) => {
       const texture = this.context.app.createTexture(64, 64);
-      texture.isShared = true;
       texture.drawRect({ x: 0, y: 0, width: 64, height: 64, color });
       return texture;
     });

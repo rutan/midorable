@@ -181,7 +181,7 @@ export interface AssetsBackend {
    * 読み込み済みアセットを解放する
    *
    * @remarks
-   * `loadAsset()` が確保した Platform 側リソースを解放する。
+   * `load()` が確保した Platform 側リソースを解放する。
    * 同じ asset が複数回渡された場合や、すでに解放済みの場合は no-op として扱うことが望ましい。
    *
    * @param asset - アセットオブジェクト

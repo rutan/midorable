@@ -23,6 +23,11 @@ export class LogScreenSprite extends Sprite {
     this._refresh();
   }
 
+  dispose() {
+    super.dispose();
+    (this.image as Texture).dispose();
+  }
+
   writeLine(line: string) {
     const date = new Date();
     const timestamp = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;

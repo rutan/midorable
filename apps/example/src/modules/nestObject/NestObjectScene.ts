@@ -1,4 +1,4 @@
-import { DisplayObject, type DisplayObjectProps, Sprite } from '@rutan/midorable';
+import { DisplayObject, type DisplayObjectProps, Sprite, Texture } from '@rutan/midorable';
 import { sceneRouter } from '../_share';
 
 export const NestObjectSceneDef = sceneRouter.defineScene('nestObject', {
@@ -8,10 +8,13 @@ export const NestObjectSceneDef = sceneRouter.defineScene('nestObject', {
 });
 
 export class NestObjectSceneView extends DisplayObject {
+  private _texture: Texture;
+
   constructor(props: DisplayObjectProps) {
     super(props);
 
     const texture = this.context.app.createTexture(100, 100);
+    this._texture = texture;
     texture.drawRect({
       x: 0,
       y: 0,
@@ -67,5 +70,10 @@ export class NestObjectSceneView extends DisplayObject {
       scaleY: 0.4,
     });
     child2.addChild(grandChild2_1);
+  }
+
+  dispose() {
+    super.dispose();
+    this._texture.dispose();
   }
 }

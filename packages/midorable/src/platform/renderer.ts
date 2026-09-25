@@ -191,6 +191,10 @@ export interface RenderState {
   smooth: boolean;
 }
 
+/**
+ * 描画・編集可能なテクスチャ。寿命は作成者が管理する。
+ * すべての利用先で不要になった時点で、作成者が `dispose()` を呼び出す。
+ */
 export interface Texture {
   /** テクスチャの幅 */
   width: number;
@@ -204,19 +208,6 @@ export interface Texture {
    * アプリケーション側に露出不能な場合、プラットフォームは null を返しても良い。
    */
   source: unknown;
-
-  /**
-   * 共有テクスチャであるか
-   *
-   * @remarks
-   * `createTexture()` で作成した編集可能なテクスチャは通常 `isShared: false` とする。
-   * `loadAsset()` などで共有管理される画像由来のテクスチャは `isShared: true` とする。
-   * `isShared: false` の Texture は Sprite / NinePatch / ParticleEmitter の dispose 時に自動破棄されることがある。
-   *
-   * 画像読み込みなどの生成されたテクスチャが該当する。
-   * 共有テクスチャの場合、midorable の Sprite 等は破棄時にテクスチャを dispose しない。
-   */
-  isShared: boolean;
 
   /**
    * テクスチャを破棄

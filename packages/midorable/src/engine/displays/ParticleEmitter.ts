@@ -148,7 +148,7 @@ export interface ParticleAttractorForce {
 export interface ParticleEmitterProps extends DisplayObjectProps {
   /** エミッタの設定 */
   config: ParticleEmitterConfig;
-  /** 使用する画像 */
+  /** 使用する画像またはテクスチャ */
   image: RenderableImage;
   /** 画像のフレーム情報。複数指定した場合はランダムに選択される */
   frames?: Rectangle[];
@@ -238,14 +238,8 @@ export class ParticleEmitter extends DisplayObject {
 
   /**
    * 表示オブジェクトを破棄する
-   *
-   * @remarks
-   * 内部で使用しているテクスチャが共有テクスチャでない場合は自動で破棄する。
    */
   dispose() {
-    if ('dispose' in this._image && !this._image.isShared) {
-      this._image.dispose();
-    }
     this._emitter.listeners.offAll();
     this._particles.length = 0;
     super.dispose();

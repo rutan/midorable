@@ -17,7 +17,7 @@ export interface SpriteProps extends DisplayObjectProps {
  * 画像を描画する表示オブジェクト
  *
  * @remarks
- * 画像アセットまたはテキスチャを描画するための表示オブジェクト。
+ * 画像アセットまたはテクスチャを描画するための表示オブジェクト。
  * `frame` プロパティを指定することで、画像の一部を切り出して描画することもできる。
  *
  * @example
@@ -52,21 +52,6 @@ export class Sprite extends DisplayObject {
    */
   get frame() {
     return this._frame;
-  }
-
-  /**
-   * 表示オブジェクトを破棄する
-   *
-   * @remarks
-   * 描画対象がテクスチャかつ共有フラグが false の場合、テクスチャも破棄する。
-   * それ以外の場合は、描画対象の破棄は行わない。
-   */
-  dispose() {
-    if ('dispose' in this._image && !this._image.isShared) {
-      this._image.dispose();
-    }
-
-    super.dispose();
   }
 
   protected renderSelf(encoder: RenderCommandEncoder, state: RenderState) {

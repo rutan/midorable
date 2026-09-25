@@ -1,4 +1,4 @@
-import { App, Color, Sprite, SpriteProps } from '@rutan/midorable';
+import { App, Color, Sprite, SpriteProps, Texture } from '@rutan/midorable';
 
 export interface GridSpriteProps extends Omit<SpriteProps, 'image'> {
   width: number;
@@ -20,6 +20,11 @@ export class GridSprite extends Sprite {
         gridColor: props.gridColor ?? DEFAULT_GRID_COLOR,
       }),
     });
+  }
+
+  dispose() {
+    super.dispose();
+    (this.image as Texture).dispose();
   }
 }
 

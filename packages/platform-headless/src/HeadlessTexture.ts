@@ -4,16 +4,14 @@ import { HeadlessTextureCommand } from './types';
 export class HeadlessTexture implements Texture {
   width: number;
   height: number;
-  isShared: boolean;
 
   private _disposed = false;
   private _commands: HeadlessTextureCommand[] = [];
   private _recording: boolean;
 
-  constructor(width: number, height: number, options?: { isShared?: boolean; recording?: boolean }) {
+  constructor(width: number, height: number, options?: { recording?: boolean }) {
     this.width = width;
     this.height = height;
-    this.isShared = options?.isShared ?? false;
     this._recording = options?.recording ?? false;
   }
 

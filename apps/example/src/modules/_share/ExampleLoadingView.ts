@@ -1,4 +1,4 @@
-import { DisplayObject, Sprite, type DisplayObjectProps } from '@rutan/midorable';
+import { DisplayObject, Sprite, type DisplayObjectProps, Texture } from '@rutan/midorable';
 import type { SceneLoadingState } from '@rutan/midorable/utils/scene';
 import type { SceneMap } from './scenes';
 import { TextButtonSprite } from './sprites';
@@ -10,6 +10,8 @@ const BUTTON_WIDTH = 220;
 const BUTTON_HEIGHT = 64;
 
 export class ExampleLoadingView extends DisplayObject {
+  private _backgroundTexture!: Texture;
+  private _progressBarTexture!: Texture;
   private _backgroundSprite!: Sprite;
   private _progressBarSprite!: Sprite;
   private _retryButton!: TextButtonSprite;
@@ -23,8 +25,15 @@ export class ExampleLoadingView extends DisplayObject {
     this._createRetryButton();
   }
 
+  dispose() {
+    super.dispose();
+    this._backgroundTexture.dispose();
+    this._progressBarTexture.dispose();
+  }
+
   private _createBackgroundSprite() {
     const texture = this.context.app.createTexture(this.context.app.width, this.context.app.height);
+    this._backgroundTexture = texture;
     texture.drawRect({
       x: 0,
       y: 0,
@@ -41,6 +50,7 @@ export class ExampleLoadingView extends DisplayObject {
 
   private _createProgressBarSprite() {
     const texture = this.context.app.createTexture(PROGRESS_BAR_WIDTH, PROGRESS_BAR_HEIGHT);
+    this._progressBarTexture = texture;
     texture.drawRect({
       x: 0,
       y: 0,

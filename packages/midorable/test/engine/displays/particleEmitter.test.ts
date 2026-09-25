@@ -62,7 +62,7 @@ function createConfig(overrides: Partial<ParticleEmitterConfig> = {}): ParticleE
 describe('ParticleEmitter', () => {
   it('spawns particles while playing and renders them', () => {
     const context = createTestContext();
-    const image = createMockTexture(8, 8, true);
+    const image = createMockTexture(8, 8);
     const emitter = new ParticleEmitter({ context, config: createConfig(), image });
     const { renderer, drawSpriteCalls } = createRendererSpy();
 
@@ -78,7 +78,7 @@ describe('ParticleEmitter', () => {
 
   it('emits finished after duration and particles end', () => {
     const context = createTestContext();
-    const image = createMockTexture(8, 8, true);
+    const image = createMockTexture(8, 8);
     const emitter = new ParticleEmitter({ context, config: createConfig(), image });
 
     let finished = 0;
@@ -98,7 +98,7 @@ describe('ParticleEmitter', () => {
 
   it('stop clears all particles immediately', () => {
     const context = createTestContext();
-    const image = createMockTexture(8, 8, true);
+    const image = createMockTexture(8, 8);
     const emitter = new ParticleEmitter({ context, config: createConfig({ lifetime: 1 }), image });
     const { renderer, drawSpriteCalls } = createRendererSpy();
 
@@ -115,7 +115,7 @@ describe('ParticleEmitter', () => {
 
   it('applies config.color tone to rendered particles', () => {
     const context = createTestContext();
-    const image = createMockTexture(8, 8, true);
+    const image = createMockTexture(8, 8);
     const emitter = new ParticleEmitter({
       context,
       config: createConfig({
@@ -139,7 +139,7 @@ describe('ParticleEmitter', () => {
 
   it('aligns particle rotation to movement direction when alignToDirection is enabled', () => {
     const context = createTestContext();
-    const image = createMockTexture(8, 8, true);
+    const image = createMockTexture(8, 8);
     const emitter = new ParticleEmitter({
       context,
       config: createConfig({
@@ -166,7 +166,7 @@ describe('ParticleEmitter', () => {
 
   it('applies angularVelocity and angularVelocityOverLife to particle rotation', () => {
     const context = createTestContext();
-    const image = createMockTexture(8, 8, true);
+    const image = createMockTexture(8, 8);
     const emitter = new ParticleEmitter({
       context,
       config: createConfig({
@@ -201,7 +201,7 @@ describe('ParticleEmitter', () => {
 
   it('passes smooth flag to particle draw calls', () => {
     const context = createTestContext();
-    const image = createMockTexture(8, 8, true);
+    const image = createMockTexture(8, 8);
     const emitter = new ParticleEmitter({
       context,
       config: createConfig({

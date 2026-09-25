@@ -25,7 +25,7 @@ describe('DisplayObject smooth', () => {
     const context = createTestContext();
     const sprite = new Sprite({
       context,
-      image: createMockTexture(8, 8, true),
+      image: createMockTexture(8, 8),
       smooth: false,
     });
     const { renderer, states } = createRendererSpy();
