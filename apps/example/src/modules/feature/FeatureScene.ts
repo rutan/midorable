@@ -1,5 +1,5 @@
 import { DisplayObject, type DisplayObjectProps } from '@rutan/midorable';
-import { FONT_NAME, sceneRouter, TextButtonSprite } from '../_share';
+import { FONT_NAME, defineScene, TextButtonSprite } from '../_share';
 import { LogScreenSprite } from './LogScreenSprite';
 
 const BUTTON_WIDTH = 180;
@@ -9,7 +9,7 @@ const BUTTON_START_X = 40;
 const BUTTON_START_Y = 80;
 const BUTTON_COLUMN_COUNT = 2;
 
-export const FeatureSceneDef = sceneRouter.defineScene('feature', {
+export const FeatureSceneDef = defineScene('feature', {
   create({ context }) {
     return new FeatureSceneView({ context });
   },

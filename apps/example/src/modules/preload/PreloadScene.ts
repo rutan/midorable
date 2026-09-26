@@ -1,9 +1,10 @@
-import { DisplayObject, type DisplayObjectProps, imageAsset, Sprite, Texture } from '@rutan/midorable';
-import { FONT_NAME, sceneRouter, type AssetsOf } from '../_share';
+import { type App, DisplayObject, type DisplayObjectProps, imageAsset, Sprite, Texture } from '@rutan/midorable';
+import { FONT_NAME, defineScene, defineAssets, type AssetsOf } from '../_share';
 
-let shouldFailPreloadOnce = true;
+// リトライ待ちの状態はアプリごとに保持する。
+const appsAwaitingRetry = new WeakSet<App>();
 
-const getAssets = sceneRouter.defineAssets('preload', async () => {
+const getAssets = defineAssets('preload', async ({ context }) => {
   await sleep(900);
 
   const images = {
@@ -19,8 +20,8 @@ const getAssets = sceneRouter.defineAssets('preload', async () => {
     _dummyImage9: imageAsset('img/image_pixel.png?v=9'),
   } as const;
 
-  if (shouldFailPreloadOnce) {
-    shouldFailPreloadOnce = false;
+  if (!appsAwaitingRetry.has(context.app)) {
+    appsAwaitingRetry.add(context.app);
     return {
       ...images,
       imageFrame: imageAsset('img/does-not-exist.png'),
@@ -35,7 +36,7 @@ const getAssets = sceneRouter.defineAssets('preload', async () => {
 
 type PreloadSceneAssets = AssetsOf<typeof getAssets>;
 
-export const PreloadSceneDef = sceneRouter.defineScene('preload', {
+export const PreloadSceneDef = defineScene('preload', {
   getAssets,
   create({ context, assets }) {
     return new PreloadSceneView({ context, assets });
@@ -52,7 +53,7 @@ class PreloadSceneView extends DisplayObject {
   constructor(props: PreloadSceneViewProps) {
     super(props);
 
-    shouldFailPreloadOnce = true; // シーン初期化時に毎回失敗するようにリセット
+    appsAwaitingRetry.delete(this.context.app); // 次回も初回の読み込みを失敗させる
 
     const titleTexture = this.context.app.createTexture(760, 180);
     this._titleTexture = titleTexture;

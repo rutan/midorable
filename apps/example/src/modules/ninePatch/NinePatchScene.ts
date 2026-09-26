@@ -1,7 +1,7 @@
 import { DisplayObject, type DisplayObjectProps, type ImageAsset, NinePatch } from '@rutan/midorable';
-import { BUTTON_CORNER_SIZE, BUTTON_IMAGE_KEY, sceneRouter } from '../_share';
+import { BUTTON_CORNER_SIZE, BUTTON_IMAGE_KEY, defineScene } from '../_share';
 
-export const NinePatchSceneDef = sceneRouter.defineScene('ninePatch', {
+export const NinePatchSceneDef = defineScene('ninePatch', {
   create({ context }) {
     return new NinePatchSceneView({ context });
   },

@@ -1,12 +1,12 @@
 import { DisplayObject, type DisplayObjectProps } from '@rutan/midorable';
-import { ADVANCED_DEMO_SCENES, NORMAL_DEMO_SCENES, SceneName, sceneRouter, TextButtonSprite } from '../_share';
+import { ADVANCED_DEMO_SCENES, NORMAL_DEMO_SCENES, SceneName, defineScene, TextButtonSprite } from '../_share';
 
 const COLUMN_COUNT = 5;
 const BUTTON_WIDTH = 200;
 const BUTTON_HEIGHT = 72;
 const BUTTON_GAP = 20;
 
-export const MenuSceneDef = sceneRouter.defineScene('menu', {
+export const MenuSceneDef = defineScene('menu', {
   meta: {
     showBackButton: false,
   },

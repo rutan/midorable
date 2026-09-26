@@ -5,15 +5,15 @@ import {
   ParticleEmitter,
   ParticleEmitterConfig,
 } from '@rutan/midorable';
-import { sceneRouter, type AssetsOf } from '../_share';
+import { defineScene, defineAssets, type AssetsOf } from '../_share';
 
-const particleSceneAssets = sceneRouter.defineAssets('particle', () => ({
+const particleSceneAssets = defineAssets('particle', () => ({
   image: imageAsset('img/particle_circle.png'),
 }));
 
 type ParticleSceneAssets = AssetsOf<typeof particleSceneAssets>;
 
-export const ParticleSceneDef = sceneRouter.defineScene('particle', {
+export const ParticleSceneDef = defineScene('particle', {
   getAssets: particleSceneAssets,
   create({ context, assets }) {
     return new ParticleSceneView({ context, assets });

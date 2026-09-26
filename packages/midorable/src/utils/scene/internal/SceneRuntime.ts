@@ -2,6 +2,7 @@ import { type AppContext, createEventHandlers, DisplayObject, Loader } from '../
 import type { SceneCreateResult, SceneDefinitions, SceneView } from '../definition';
 import { SceneAssetLoadingError } from '../errors';
 import type { SceneNavigator } from '../navigator';
+import type { SceneRouterConfig } from '../SceneRouter';
 import type {
   SceneAssetLoadingSnapshot,
   SceneChangeEvent,
@@ -9,24 +10,17 @@ import type {
   SceneNavigationArgs,
   SceneRouteMap,
 } from '../types';
+import { createManagedScene, type ManagedScene } from './ManagedScene';
 
-/**
- * シーンランタイムの初期化パラメータ
- */
-interface SceneRuntimeProps<TRoutes extends SceneRouteMap> {
-  root: DisplayObject;
-  context: AppContext;
-  routes: SceneDefinitions<TRoutes>;
+interface ScenePreparationFailure {
+  error: unknown;
+  cleanupErrors: readonly unknown[];
+  loadingStarted: boolean;
 }
 
-interface ManagedScene<TRoutes extends SceneRouteMap> {
-  key: keyof TRoutes;
-  params: TRoutes[keyof TRoutes] | undefined;
-  meta: Record<string, unknown>;
-  view: DisplayObject;
-  dispose?: () => void | Promise<void>;
-  loader: AppContext['loader'];
-}
+type ScenePreparationResult<TRoutes extends SceneRouteMap> =
+  | { ok: true; scene: ManagedScene<TRoutes>; loadingStarted: boolean }
+  | ({ ok: false } & ScenePreparationFailure);
 
 /**
  * SceneRouter の内部でシーンの生成・破棄・遷移を処理するランタイム
@@ -42,15 +36,15 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
   private _root: DisplayObject;
   private _context: AppContext;
   private _routes: SceneDefinitions<TRoutes>;
-  private _currentManagedScene: ManagedScene<TRoutes> | null = null;
-  private _sceneStack: ManagedScene<TRoutes>[] = [];
+  private _scenes: ManagedScene<TRoutes>[] = [];
   private _navigationQueue = Promise.resolve();
+  private _disposePromise: Promise<void> | null = null;
   private _onSceneChanged = createEventHandlers<SceneChangeEvent<TRoutes>>();
   private _onLoadingStateChanged = createEventHandlers<SceneLoadingState<TRoutes>>();
 
   readonly navigator: SceneNavigator<TRoutes>;
 
-  constructor({ root, context, routes }: SceneRuntimeProps<TRoutes>) {
+  constructor({ root, context, routes }: SceneRouterConfig<TRoutes>) {
     this._root = root;
     this._context = context;
     this._routes = routes;
@@ -61,24 +55,33 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
     };
   }
 
+  private get _currentScene() {
+    return this._scenes.at(-1) ?? null;
+  }
+
+  /** 全破棄の順序は、現在のシーン、続いて退避中のシーンを配列順とする。 */
+  private _scenesInDisposalOrder() {
+    const current = this._currentScene;
+    return current ? [current, ...this._scenes.slice(0, -1)] : [];
+  }
+
   /**
    * 現在表示中のシーンビュー
    */
   get currentView() {
-    return this._currentManagedScene?.view ?? null;
+    return this._currentScene?.view ?? null;
   }
 
   /**
    * 現在表示中のシーンのルート情報
    */
   get currentRoute() {
-    if (!this._currentManagedScene) {
-      return null;
-    }
+    if (!this._currentScene) return null;
+
     return {
-      sceneKey: this._currentManagedScene.key,
-      params: this._currentManagedScene.params,
-      meta: this._currentManagedScene.meta,
+      sceneKey: this._currentScene.key,
+      params: this._currentScene.params,
+      meta: this._currentScene.meta,
     };
   }
 
@@ -106,26 +109,23 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
    */
   async goTo<TKey extends keyof TRoutes>(...args: SceneNavigationArgs<TRoutes, TKey>) {
     const [sceneKey, params] = args;
-    return this._enqueueNavigation(async () => {
-      const previousScene = this._currentManagedScene;
-      const previousStack = [...this._sceneStack];
-      const nextScene = await this._setupScene(sceneKey, params, () => this.goTo(sceneKey as any, params as any));
 
-      try {
-        await this._attachNextScene(nextScene);
-        this._currentManagedScene = nextScene;
-        this._sceneStack = [];
-        await this._disposeScenes(previousScene ? [previousScene, ...previousStack] : previousStack);
-        this._setLoadingState({ status: 'hidden' });
-        this._onSceneChanged.emit({
-          sceneKey,
-          params: params as TRoutes[keyof TRoutes] | undefined,
-          meta: nextScene.meta,
-        });
-      } catch (error) {
-        await this._disposeManagedScene(nextScene);
-        throw error;
+    return this._enqueueNavigation(async () => {
+      const scenesToDispose = this._scenesInDisposalOrder();
+      const retry = () => this.goTo<TKey>(...args);
+      const preparation = await this._prepareScene(sceneKey, params);
+      if (!preparation.ok) {
+        this._failTransition(sceneKey, params, preparation, retry);
       }
+
+      const { scene, loadingStarted } = preparation;
+      try {
+        this._commitScenes([scene]);
+      } catch (error) {
+        this._failTransition(sceneKey, params, { error, cleanupErrors: await scene.dispose(), loadingStarted }, retry);
+      }
+
+      await this._finishTransition(scene, scenesToDispose, true);
     });
   }
 
@@ -140,31 +140,20 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
   async pushScene<TKey extends keyof TRoutes>(...args: SceneNavigationArgs<TRoutes, TKey>) {
     const [sceneKey, params] = args;
     return this._enqueueNavigation(async () => {
-      const previousScene = this._currentManagedScene;
-      const nextScene = await this._setupScene(sceneKey, params, () => this.pushScene(sceneKey as any, params as any));
-
-      try {
-        if (previousScene) {
-          this._root.removeChild(previousScene.view);
-        }
-        await this._attachNextScene(nextScene);
-        this._currentManagedScene = nextScene;
-        if (previousScene) {
-          this._sceneStack.push(previousScene);
-        }
-        this._setLoadingState({ status: 'hidden' });
-        this._onSceneChanged.emit({
-          sceneKey,
-          params: params as TRoutes[keyof TRoutes] | undefined,
-          meta: nextScene.meta,
-        });
-      } catch (error) {
-        if (previousScene) {
-          this._root.addChild(previousScene.view);
-        }
-        await this._disposeManagedScene(nextScene);
-        throw error;
+      const retry = () => this.pushScene<TKey>(...args);
+      const preparation = await this._prepareScene(sceneKey, params);
+      if (!preparation.ok) {
+        this._failTransition(sceneKey, params, preparation, retry);
       }
+
+      const { scene, loadingStarted } = preparation;
+      try {
+        this._commitScenes([...this._scenes, scene]);
+      } catch (error) {
+        this._failTransition(sceneKey, params, { error, cleanupErrors: await scene.dispose(), loadingStarted }, retry);
+      }
+
+      await this._finishTransition(scene, [], true);
     });
   }
 
@@ -176,48 +165,52 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
    */
   async popScene() {
     return this._enqueueNavigation(async () => {
-      const previousScene = this._sceneStack.pop();
-      const currentManagedScene = this._currentManagedScene;
+      const previousScene = this._scenes.at(-2);
+      const currentScene = this._currentScene;
+      if (!previousScene || !currentScene) return;
 
-      if (!previousScene || !currentManagedScene) {
-        if (previousScene) {
-          this._sceneStack.push(previousScene);
-        }
-        return;
-      }
-
-      try {
-        this._root.addChild(previousScene.view);
-        this._currentManagedScene = previousScene;
-        await this._disposeManagedScene(currentManagedScene);
-        this._onSceneChanged.emit({
-          sceneKey: previousScene.key,
-          params: previousScene.params,
-          meta: previousScene.meta,
-        });
-      } catch (error) {
-        this._root.removeChild(previousScene.view);
-        this._currentManagedScene = currentManagedScene;
-        this._sceneStack.push(previousScene);
-        throw error;
-      }
+      this._commitScenes(this._scenes.slice(0, -1));
+      await this._finishTransition(previousScene, [currentScene], false);
     });
   }
 
+  dispose(): Promise<void> {
+    if (this._disposePromise) return this._disposePromise;
+
+    this._disposePromise = this._navigationQueue.then(async () => {
+      const scenes = this._scenesInDisposalOrder();
+      try {
+        this._commitScenes([]);
+        const errors = await this._disposeScenes(scenes);
+        if (errors.length > 0) {
+          throw new AggregateError(errors, 'Failed to dispose scenes');
+        }
+      } finally {
+        this._onSceneChanged.listeners.offAll();
+        this._onLoadingStateChanged.listeners.offAll();
+      }
+    });
+
+    return this._disposePromise;
+  }
+
   private _enqueueNavigation(task: () => Promise<void>) {
+    if (this._disposePromise) {
+      return Promise.reject(new Error('SceneRouter has been disposed'));
+    }
+
     const nextNavigation = this._navigationQueue.then(task);
     this._navigationQueue = nextNavigation.catch(() => {});
     return nextNavigation;
   }
 
-  private async _setupScene<TKey extends keyof TRoutes>(
+  private async _prepareScene<TKey extends keyof TRoutes>(
     sceneKey: TKey,
     params: TRoutes[TKey] | undefined,
-    retry: () => Promise<void>,
-  ) {
-    const loader = createProxyLoader(this._context.app.createLoader(), this._context.loader);
-    const definition = this._routes[sceneKey];
-    const sceneParams = params as TRoutes[TKey];
+  ): Promise<ScenePreparationResult<TRoutes>> {
+    let loader: Loader | undefined;
+    let scene: ManagedScene<TRoutes> | undefined;
+    let loadingStarted = false;
     const loadingRequest = {
       status: 'loading' as const,
       sceneKey,
@@ -225,9 +218,13 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
     };
 
     try {
+      loader = createProxyLoader(this._context.app.createLoader(), this._context.loader);
+      const definition = this._routes[sceneKey];
+      const sceneParams = params as TRoutes[TKey];
       let assets: Record<string, unknown> = {};
 
       if (definition.getAssets) {
+        loadingStarted = true;
         this._setLoadingState({
           ...loadingRequest,
           assetLoading: null,
@@ -263,6 +260,7 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
             ) {
               return;
             }
+
             assetLoading = {
               progress: snapshot.progress,
             };
@@ -299,50 +297,97 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
         assets: assets as any,
         navigator: this.navigator,
       });
-      const scene = normalizeSceneResult(sceneResult);
-
-      return {
-        key: sceneKey,
-        params: params as TRoutes[keyof TRoutes] | undefined,
-        meta: definition.meta ?? {},
-        view: scene.view,
-        dispose: scene.dispose,
+      scene = createManagedScene<TRoutes>(
+        { sceneKey, params: sceneParams, meta: definition.meta ?? {} },
+        normalizeSceneResult(sceneResult),
         loader,
-      } satisfies ManagedScene<TRoutes>;
+      );
+      initializeSceneView(scene.view);
+      return { ok: true, scene, loadingStarted };
     } catch (error) {
+      const cleanupErrors: unknown[] = [];
+      if (scene) {
+        cleanupErrors.push(...(await scene.dispose()));
+      } else if (loader) {
+        try {
+          await loader.dispose();
+        } catch (cleanupError) {
+          cleanupErrors.push(cleanupError);
+        }
+      }
+      return { ok: false, error, cleanupErrors, loadingStarted };
+    }
+  }
+
+  private _failTransition<TKey extends keyof TRoutes>(
+    sceneKey: TKey,
+    params: TRoutes[TKey] | undefined,
+    { error, cleanupErrors, loadingStarted }: ScenePreparationFailure,
+    retry: () => Promise<void>,
+  ): never {
+    const errors = [error, ...cleanupErrors];
+    try {
       if (error instanceof SceneAssetLoadingError) {
-        const assetLoading = {
-          progress: error.progress,
-        } satisfies SceneAssetLoadingSnapshot;
         this._setLoadingState({
           status: 'failed',
           sceneKey,
           params: params as TRoutes[keyof TRoutes] | undefined,
-          assetLoading,
+          assetLoading: { progress: error.progress },
           error,
           retry,
         });
+      } else if (loadingStarted) {
+        this._setLoadingState({ status: 'hidden' });
       }
-      await loader.dispose();
-      throw error;
+    } catch (notificationError) {
+      errors.push(notificationError);
     }
+    if (errors.length === 1) throw errors[0];
+    throw new AggregateError(errors, 'Failed to prepare scene transition');
   }
 
-  private async _attachNextScene(nextScene: ManagedScene<TRoutes>) {
-    initializeSceneView(nextScene.view);
-    this._root.addChild(nextScene.view);
+  private _commitScenes(nextScenes: ManagedScene<TRoutes>[]) {
+    const previous = this._currentScene;
+    const next = nextScenes.at(-1);
+    if (next !== previous) {
+      if (next) this._root.addChild(next.view);
+      if (previous) this._root.removeChild(previous.view);
+    }
+    this._scenes = nextScenes;
   }
 
-  private async _disposeManagedScene(scene: ManagedScene<TRoutes>) {
-    await scene.dispose?.();
-    scene.view.dispose();
-    await scene.loader.dispose();
+  private async _finishTransition(
+    scene: ManagedScene<TRoutes>,
+    scenesToDispose: ManagedScene<TRoutes>[],
+    hideLoading: boolean,
+  ) {
+    const errors = await this._disposeScenes(scenesToDispose);
+    if (hideLoading) {
+      try {
+        this._setLoadingState({ status: 'hidden' });
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+
+    try {
+      this._onSceneChanged.emit({ sceneKey: scene.key, params: scene.params, meta: scene.meta });
+    } catch (error) {
+      errors.push(error);
+    }
+
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) {
+      throw new AggregateError(errors, 'Failed to finish scene transition');
+    }
   }
 
   private async _disposeScenes(scenes: ManagedScene<TRoutes>[]) {
+    const errors: unknown[] = [];
     for (const scene of scenes) {
-      await this._disposeManagedScene(scene);
+      errors.push(...(await scene.dispose()));
     }
+    return errors;
   }
 
   private _setLoadingState(state: SceneLoadingState<TRoutes>) {

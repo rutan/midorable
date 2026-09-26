@@ -1,16 +1,16 @@
 import { DisplayObject, type DisplayObjectProps, imageAsset, PointerButtonId } from '@rutan/midorable';
-import { sceneRouter, type AssetsOf } from '../_share';
+import { defineScene, defineAssets, type AssetsOf } from '../_share';
 import { PointerMarkersLayer } from './PointerMarkersLayer';
 import { PointerStatusPanelSprite } from './PointerStatusPanelSprite';
 import { createPointerSnapshot, syncPointerButtons } from './snapshot';
 
-const pointerSceneAssets = sceneRouter.defineAssets('pointer', () => ({
+const pointerSceneAssets = defineAssets('pointer', () => ({
   cursorImage: imageAsset('img/cursor.png'),
 }));
 
 type PointerSceneAssets = AssetsOf<typeof pointerSceneAssets>;
 
-export const PointerSceneDef = sceneRouter.defineScene('pointer', {
+export const PointerSceneDef = defineScene('pointer', {
   getAssets: pointerSceneAssets,
   create({ context, assets }) {
     return new PointerSceneView({ context, assets });
