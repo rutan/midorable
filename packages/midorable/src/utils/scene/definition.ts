@@ -29,6 +29,10 @@ export type SceneCreateResult = DisplayObject | SceneView;
 
 /**
  * 表示ルートと任意の破棄処理をまとめたシーン表示単位
+ *
+ * @remarks
+ * 追加の dispose は view を表示から外した後に呼ばれる。
+ * その完了後、成否にかかわらず view とシーン専用 loader の破棄を試みる。
  */
 export interface SceneView {
   view: DisplayObject;

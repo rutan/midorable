@@ -208,6 +208,8 @@ describe('SceneRouter', () => {
     const app = new App({ platform: createMockPlatform().platform });
     const unrelatedView = new DisplayObject({ context: app.context });
     app.root.addChild(unrelatedView);
+    const cleanupError = new Error('cleanup failed');
+    const viewError = new Error('view disposal failed');
     const scenes: Array<{
       view: DisplayObject;
       dispose: ReturnType<typeof vi.fn>;
@@ -222,12 +224,21 @@ describe('SceneRouter', () => {
           create(props) {
             navigator = props.navigator;
             const view = new DisplayObject({ context: props.context });
+            const originalDispose = view.dispose.bind(view);
             const disposeView = vi.spyOn(view, 'dispose');
             const index = scenes.length;
+            if (cleanupFails && index === 1) {
+              disposeView.mockImplementation(async () => {
+                originalDispose();
+                await Promise.resolve();
+                throw viewError;
+              });
+            }
             const scene = {
               view,
               dispose: vi.fn(async () => {
-                if (cleanupFails && index === 1) throw new Error('cleanup failed');
+                expect(view.parent).toBeNull();
+                if (cleanupFails && index === 1) throw cleanupError;
               }),
             };
             scenes.push({ ...scene, disposeView });
@@ -241,7 +252,7 @@ describe('SceneRouter', () => {
 
     const disposal = router.dispose();
     if (cleanupFails) {
-      await expect(disposal).rejects.toBeInstanceOf(AggregateError);
+      await expect(disposal).rejects.toMatchObject({ name: 'AggregateError', errors: [cleanupError, viewError] });
     } else {
       await disposal;
     }

@@ -553,9 +553,13 @@ describe('SceneRouter runtime', () => {
           main: { create: ({ context }) => new DisplayObject({ context }) },
           overlay: { create: ({ context }) => new DisplayObject({ context }) },
           broken: {
+            getAssets: () => ({ image: imageAsset('broken.png') }),
             create({ context }) {
               failedView = Object.assign(new DisplayObject({ context }), {
                 init() {
+                  expect(app.root.children).toEqual([overlayView]);
+                  expect(router.currentView).toBe(overlayView);
+                  expect(failedView.parent).toBeNull();
                   throw initError;
                 },
               });
@@ -571,7 +575,10 @@ describe('SceneRouter runtime', () => {
       const changed = vi.fn();
       router.onSceneChanged.on(changed);
 
+      const loading = vi.fn();
+      router.onLoadingStateChanged.on(loading);
       await expect(router[navigation]('broken')).rejects.toBe(initError);
+      expect(loading).toHaveBeenLastCalledWith({ status: 'hidden' });
       expect(router.currentView).toBe(overlayView);
       expect(app.root.children).toEqual([overlayView]);
       expect(overlayView.context.loader.disposed).toBe(false);
@@ -583,4 +590,157 @@ describe('SceneRouter runtime', () => {
       await router.dispose();
     },
   );
+
+  it.each(['goTo', 'dispose'] as const)(
+    '%s detaches outgoing scenes before awaiting their cleanup',
+    async (operation) => {
+      const app = new App({ platform: createMockPlatform().platform });
+      const ui = new DisplayObject({ context: app.context });
+      app.root.addChild(ui);
+      const started = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      const router = createSceneRouter<TestRoutes>({
+        root: app.root,
+        context: app.context,
+        routes: {
+          first: { create: ({ context }) => new DisplayObject({ context }) },
+          second: {
+            create: ({ context }) => ({
+              view: new DisplayObject({ context }),
+              async dispose() {
+                started.resolve();
+                await release.promise;
+              },
+            }),
+          },
+        },
+      });
+      await router.goTo('first');
+      await router.pushScene('second', { id: 1 });
+      const outgoing = router.currentView!;
+      const changed = vi.fn();
+      router.onSceneChanged.on(changed);
+      const transition = operation === 'goTo' ? router.goTo('first') : router.dispose();
+      await started.promise;
+
+      const destination = router.currentView;
+      expect(outgoing.parent).toBeNull();
+      expect(outgoing.context.loader.disposed).toBe(false);
+      expect(app.root.children).toEqual(destination ? [ui, destination] : [ui]);
+      expect(router.currentRoute?.sceneKey ?? null).toBe(operation === 'goTo' ? 'first' : null);
+      expect(changed).not.toHaveBeenCalled();
+
+      release.resolve();
+      await transition;
+      expect(outgoing.context.loader.disposed).toBe(true);
+      expect(changed).toHaveBeenCalledTimes(operation === 'goTo' ? 1 : 0);
+      await router.dispose();
+      expect(app.root.children).toEqual([ui]);
+    },
+  );
+
+  it('releases failed preload resources and preserves retry even when cleanup and failure notification throw', async () => {
+    const { platform } = createMockPlatform();
+    const app = new App({ platform });
+    const loadError = new Error('missing image');
+    const unloadError = new Error('unload failed');
+    const notificationError = new Error('notification failed');
+    let shouldFail = true;
+    let sceneLoader!: AppContext['loader'];
+    vi.mocked(platform.assets.load).mockImplementation(async (spec: AssetSpec) => {
+      if (shouldFail && spec.src === 'missing.png') throw loadError;
+      return createImageAsset(spec.src);
+    });
+    vi.mocked(platform.assets.unload).mockImplementationOnce(() => {
+      throw unloadError;
+    });
+    const router = createSceneRouter<TestRoutes>({
+      root: app.root,
+      context: app.context,
+      routes: {
+        first: { create: ({ context }) => new DisplayObject({ context }) },
+        second: {
+          getAssets({ context }) {
+            sceneLoader = context.loader;
+            return { good: imageAsset('good.png'), missing: imageAsset('missing.png') };
+          },
+          create: ({ context }) => new DisplayObject({ context }),
+        },
+      },
+    });
+    await router.goTo('first');
+    const first = router.currentView;
+    const states: SceneLoadingState<TestRoutes>[] = [];
+    router.onLoadingStateChanged.on((state) => {
+      states.push(state);
+      if (state.status === 'failed') throw notificationError;
+    });
+    await expect(router.pushScene('second', { id: 2 })).rejects.toMatchObject({
+      errors: [
+        expect.any(SceneAssetLoadingError),
+        expect.objectContaining({ errors: [unloadError] }),
+        notificationError,
+      ],
+    });
+    expect(sceneLoader.disposed).toBe(true);
+    expect(router.currentView).toBe(first);
+    expect(app.root.children).toEqual([first]);
+    const failed = states.at(-1);
+    if (failed?.status !== 'failed') throw new Error('expected failed loading state');
+    expect(failed.error).toMatchObject({ cause: loadError });
+
+    shouldFail = false;
+    await failed.retry();
+    expect(router.currentRoute?.sceneKey).toBe('second');
+    await router.popScene();
+    expect(router.currentView).toBe(first);
+    await router.dispose();
+  });
+
+  it('disposes only newly prepared scenes when attaching a view fails', async () => {
+    const app = new App({ platform: createMockPlatform().platform });
+    const attachmentError = new Error('attachment failed');
+    let prepared!: DisplayObject;
+    const router = createSceneRouter<TestRoutes>({
+      root: app.root,
+      context: app.context,
+      routes: {
+        first: { create: ({ context }) => new DisplayObject({ context }) },
+        second: {
+          getAssets: () => ({ image: imageAsset('second.png') }),
+          create({ context }) {
+            prepared = new DisplayObject({ context });
+            return prepared;
+          },
+        },
+      },
+    });
+    await router.goTo('first');
+    const first = router.currentView!;
+    const addChild = vi.spyOn(app.root, 'addChild');
+    const loading = vi.fn();
+    router.onLoadingStateChanged.on(loading);
+    addChild.mockImplementationOnce(() => {
+      throw attachmentError;
+    });
+    await expect(router.pushScene('second', { id: 1 })).rejects.toBe(attachmentError);
+    expect(router.currentView).toBe(first);
+    expect(app.root.children).toEqual([first]);
+    expect(prepared.context.loader.disposed).toBe(true);
+    expect(loading).toHaveBeenLastCalledWith({ status: 'hidden' });
+
+    await router.pushScene('second', { id: 2 });
+    const second = router.currentView!;
+    addChild.mockImplementationOnce(() => {
+      throw attachmentError;
+    });
+    await expect(router.popScene()).rejects.toBe(attachmentError);
+    expect(router.currentView).toBe(second);
+    expect(app.root.children).toEqual([second]);
+    expect(first.context.loader.disposed).toBe(false);
+    expect(second.context.loader.disposed).toBe(false);
+    await router.popScene();
+    expect(router.currentView).toBe(first);
+    await router.dispose();
+  });
 });
