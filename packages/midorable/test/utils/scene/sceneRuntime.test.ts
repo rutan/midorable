@@ -436,4 +436,151 @@ describe('SceneRouter runtime', () => {
     await router.popScene();
     expect(router.currentView).toBe(firstView);
   });
+
+  it.each(['goTo', 'popScene'] as const)(
+    '%s keeps the destination usable when the outgoing scene cleanup fails',
+    async (navigation) => {
+      const app = new App({ platform: createMockPlatform().platform });
+      const cleanupError = new Error('cleanup failed');
+      const disposeSecond = vi.fn(async () => {
+        throw cleanupError;
+      });
+      const router = createSceneRouter<TestRoutes>({
+        root: app.root,
+        context: app.context,
+        routes: {
+          first: {
+            getAssets: () => ({ image: imageAsset('first.png') }),
+            create: ({ context }) => new DisplayObject({ context }),
+          },
+          second: {
+            create: ({ context }) => ({ view: new DisplayObject({ context }), dispose: disposeSecond }),
+          },
+        },
+      });
+      await router.goTo('first');
+      const firstView = router.currentView!;
+      await router.pushScene('second', { id: 1 });
+      const secondView = router.currentView!;
+      const changed = vi.fn();
+      const loading = vi.fn();
+      router.onSceneChanged.on(changed);
+      router.onLoadingStateChanged.on(loading);
+
+      const transition = navigation === 'goTo' ? router.goTo('first') : router.popScene();
+      await expect(transition).rejects.toBe(cleanupError);
+
+      const destination = router.currentView!;
+      expect(router.currentRoute?.sceneKey).toBe('first');
+      expect(app.root.children).toEqual([destination]);
+      expect(destination.context.loader.disposed).toBe(false);
+      expect(secondView.context.loader.disposed).toBe(true);
+      expect(firstView.context.loader.disposed).toBe(navigation === 'goTo');
+      expect(changed).toHaveBeenCalledExactlyOnceWith(router.currentRoute);
+      if (navigation === 'goTo') {
+        expect(loading).toHaveBeenLastCalledWith({ status: 'hidden' });
+      } else {
+        expect(destination).toBe(firstView);
+      }
+
+      // The failed cleanup must not leave an old scene on the stack or poison the queue.
+      await router.popScene();
+      expect(router.currentView).toBe(destination);
+      await router.pushScene('first');
+      await router.popScene();
+      expect(router.currentView).toBe(destination);
+      expect(app.root.children).toEqual([destination]);
+      await router.dispose();
+      expect(disposeSecond).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('keeps a pushed scene and its stack when completion listeners throw', async () => {
+    const app = new App({ platform: createMockPlatform().platform });
+    const router = createSceneRouter<TestRoutes>({
+      root: app.root,
+      context: app.context,
+      routes: {
+        first: { create: ({ context }) => new DisplayObject({ context }) },
+        second: {
+          getAssets: () => ({ image: imageAsset('second.png') }),
+          create: ({ context }) => new DisplayObject({ context }),
+        },
+      },
+    });
+    await router.goTo('first');
+    const firstView = router.currentView!;
+    const loadingError = new Error('loading listener failed');
+    const changeError = new Error('scene listener failed');
+    const changed = vi.fn(() => {
+      throw changeError;
+    });
+    router.onLoadingStateChanged.on((state) => {
+      if (state.status === 'hidden') throw loadingError;
+    });
+    router.onSceneChanged.on(changed);
+
+    await expect(router.pushScene('second', { id: 2 })).rejects.toMatchObject({
+      name: 'AggregateError',
+      errors: [loadingError, changeError],
+    });
+    const secondView = router.currentView!;
+    expect(router.currentRoute?.sceneKey).toBe('second');
+    expect(app.root.children).toEqual([secondView]);
+    expect(secondView.context.loader.disposed).toBe(false);
+    expect(changed).toHaveBeenCalledExactlyOnceWith(router.currentRoute);
+
+    router.onLoadingStateChanged.offAll();
+    router.onSceneChanged.offAll();
+    await router.popScene();
+    expect(router.currentView).toBe(firstView);
+    expect(app.root.children).toEqual([firstView]);
+    expect(firstView.context.loader.disposed).toBe(false);
+    expect(secondView.context.loader.disposed).toBe(true);
+    await router.dispose();
+  });
+
+  it.each(['goTo', 'pushScene'] as const)(
+    '%s preserves the current scene and stack if initialization fails',
+    async (navigation) => {
+      const app = new App({ platform: createMockPlatform().platform });
+      const initError = new Error('initialization failed');
+      let failedView!: DisplayObject;
+      const router = createSceneRouter<{ main: undefined; overlay: undefined; broken: undefined }>({
+        root: app.root,
+        context: app.context,
+        routes: {
+          main: { create: ({ context }) => new DisplayObject({ context }) },
+          overlay: { create: ({ context }) => new DisplayObject({ context }) },
+          broken: {
+            create({ context }) {
+              failedView = Object.assign(new DisplayObject({ context }), {
+                init() {
+                  throw initError;
+                },
+              });
+              return failedView;
+            },
+          },
+        },
+      });
+      await router.goTo('main');
+      const mainView = router.currentView!;
+      await router.pushScene('overlay');
+      const overlayView = router.currentView!;
+      const changed = vi.fn();
+      router.onSceneChanged.on(changed);
+
+      await expect(router[navigation]('broken')).rejects.toBe(initError);
+      expect(router.currentView).toBe(overlayView);
+      expect(app.root.children).toEqual([overlayView]);
+      expect(overlayView.context.loader.disposed).toBe(false);
+      expect(failedView.context.loader.disposed).toBe(true);
+      expect(changed).not.toHaveBeenCalled();
+      await router.popScene();
+      expect(router.currentView).toBe(mainView);
+      expect(app.root.children).toEqual([mainView]);
+      await router.dispose();
+    },
+  );
 });

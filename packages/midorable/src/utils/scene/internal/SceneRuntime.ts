@@ -106,19 +106,14 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
 
       try {
         await this._attachNextScene(nextScene);
-        this._currentManagedScene = nextScene;
-        this._sceneStack = [];
-        await this._disposeScenes(previousScene ? [previousScene, ...previousStack] : previousStack);
-        this._setLoadingState({ status: 'hidden' });
-        this._onSceneChanged.emit({
-          sceneKey,
-          params: params as TRoutes[keyof TRoutes] | undefined,
-          meta: nextScene.meta,
-        });
       } catch (error) {
         await this._disposeManagedScene(nextScene);
         throw error;
       }
+
+      this._currentManagedScene = nextScene;
+      this._sceneStack = [];
+      await this._finishTransition(nextScene, previousScene ? [previousScene, ...previousStack] : previousStack, true);
     });
   }
 
@@ -141,16 +136,6 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
           this._root.removeChild(previousScene.view);
         }
         await this._attachNextScene(nextScene);
-        this._currentManagedScene = nextScene;
-        if (previousScene) {
-          this._sceneStack.push(previousScene);
-        }
-        this._setLoadingState({ status: 'hidden' });
-        this._onSceneChanged.emit({
-          sceneKey,
-          params: params as TRoutes[keyof TRoutes] | undefined,
-          meta: nextScene.meta,
-        });
       } catch (error) {
         if (previousScene) {
           this._root.addChild(previousScene.view);
@@ -158,6 +143,12 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
         await this._disposeManagedScene(nextScene);
         throw error;
       }
+
+      this._currentManagedScene = nextScene;
+      if (previousScene) {
+        this._sceneStack.push(previousScene);
+      }
+      await this._finishTransition(nextScene, [], true);
     });
   }
 
@@ -169,31 +160,17 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
    */
   async popScene() {
     return this._enqueueNavigation(async () => {
-      const previousScene = this._sceneStack.pop();
+      const previousScene = this._sceneStack.at(-1);
       const currentManagedScene = this._currentManagedScene;
 
       if (!previousScene || !currentManagedScene) {
-        if (previousScene) {
-          this._sceneStack.push(previousScene);
-        }
         return;
       }
 
-      try {
-        this._root.addChild(previousScene.view);
-        this._currentManagedScene = previousScene;
-        await this._disposeManagedScene(currentManagedScene);
-        this._onSceneChanged.emit({
-          sceneKey: previousScene.key,
-          params: previousScene.params,
-          meta: previousScene.meta,
-        });
-      } catch (error) {
-        this._root.removeChild(previousScene.view);
-        this._currentManagedScene = currentManagedScene;
-        this._sceneStack.push(previousScene);
-        throw error;
-      }
+      this._root.addChild(previousScene.view);
+      this._sceneStack.pop();
+      this._currentManagedScene = previousScene;
+      await this._finishTransition(previousScene, [currentManagedScene], false);
     });
   }
 
@@ -206,7 +183,10 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
       this._currentManagedScene = null;
       this._sceneStack = [];
       try {
-        await this._disposeScenes(scenes);
+        const errors = await this._disposeScenes(scenes);
+        if (errors.length > 0) {
+          throw new AggregateError(errors, 'Failed to dispose scenes');
+        }
       } finally {
         this._onSceneChanged.listeners.offAll();
         this._onLoadingStateChanged.listeners.offAll();
@@ -347,6 +327,33 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
     this._root.addChild(nextScene.view);
   }
 
+  /** 切り替え確定後の後片付けと通知。失敗しても確定済みのシーンは維持する。 */
+  private async _finishTransition(
+    scene: ManagedScene<TRoutes>,
+    scenesToDispose: ManagedScene<TRoutes>[],
+    hideLoading: boolean,
+  ) {
+    const errors = await this._disposeScenes(scenesToDispose);
+    if (hideLoading) {
+      try {
+        this._setLoadingState({ status: 'hidden' });
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    try {
+      this._onSceneChanged.emit({ sceneKey: scene.key, params: scene.params, meta: scene.meta });
+    } catch (error) {
+      errors.push(error);
+    }
+    if (errors.length === 1) {
+      throw errors[0];
+    }
+    if (errors.length > 1) {
+      throw new AggregateError(errors, 'Failed to finish scene transition');
+    }
+  }
+
   private async _disposeManagedScene(scene: ManagedScene<TRoutes>) {
     try {
       await scene.dispose?.();
@@ -368,9 +375,7 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
         errors.push(error);
       }
     }
-    if (errors.length > 0) {
-      throw new AggregateError(errors, 'Failed to dispose scenes');
-    }
+    return errors;
   }
 
   private _setLoadingState(state: SceneLoadingState<TRoutes>) {
