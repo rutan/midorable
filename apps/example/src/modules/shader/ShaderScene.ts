@@ -1,13 +1,13 @@
 import { DisplayObject, type DisplayObjectProps, imageAsset, Sprite, Texture } from '@rutan/midorable';
-import { FONT_NAME, sceneRouter, type AssetsOf } from '../_share';
+import { FONT_NAME, defineScene, defineAssets, type AssetsOf } from '../_share';
 
-const shaderSceneAssets = sceneRouter.defineAssets('shader', () => ({
+const shaderSceneAssets = defineAssets('shader', () => ({
   image: imageAsset('img/character.png'),
 }));
 
 type ShaderSceneAssets = AssetsOf<typeof shaderSceneAssets>;
 
-export const ShaderSceneDef = sceneRouter.defineScene('shader', {
+export const ShaderSceneDef = defineScene('shader', {
   getAssets: shaderSceneAssets,
   create({ context, assets }) {
     return new ShaderSceneView({ context, assets });

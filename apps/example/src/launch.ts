@@ -1,10 +1,11 @@
 import { App, imageAsset, type Platform } from '@rutan/midorable';
+import { createSceneRouter, type SceneDefinitions } from '@rutan/midorable/utils/scene';
 import {
   BUTTON_IMAGE_KEY,
   ExampleLoadingView,
   FONT_NAME,
   FpsCounterSprite,
-  sceneRouter,
+  type SceneMap,
   TextButtonSprite,
 } from './modules/_share';
 import { AudioSceneDef } from './modules/audio';
@@ -23,6 +24,24 @@ import { RectangleSceneDef } from './modules/rectangle';
 import { ShaderSceneDef } from './modules/shader';
 import { TextSceneDef } from './modules/text';
 import { Stage } from './stage';
+
+const routes = {
+  menu: MenuSceneDef,
+  rectangle: RectangleSceneDef,
+  image: ImageSceneDef,
+  nestObject: NestObjectSceneDef,
+  color: ColorSceneDef,
+  mask: MaskSceneDef,
+  ninePatch: NinePatchSceneDef,
+  pointer: PointerSceneDef,
+  text: TextSceneDef,
+  audio: AudioSceneDef,
+  loader: LoaderSceneDef,
+  particle: ParticleSceneDef,
+  shader: ShaderSceneDef,
+  feature: FeatureSceneDef,
+  preload: PreloadSceneDef,
+} satisfies SceneDefinitions<SceneMap>;
 
 export async function launch(platformInstance: Platform) {
   const app = new App({
@@ -43,6 +62,12 @@ export async function launch(platformInstance: Platform) {
     context: app.context,
   });
   app.root.addChild(stage);
+
+  const sceneRouter = createSceneRouter<SceneMap>({
+    root: stage.mainLayer,
+    context: app.context,
+    routes,
+  });
 
   const backButton = new TextButtonSprite({
     context: app.context,
@@ -65,27 +90,6 @@ export async function launch(platformInstance: Platform) {
   const loadingView = new ExampleLoadingView({ context: app.context });
   app.root.addChild(loadingView);
 
-  sceneRouter.setup({
-    root: stage.mainLayer,
-    context: app.context,
-    routes: {
-      menu: MenuSceneDef,
-      rectangle: RectangleSceneDef,
-      image: ImageSceneDef,
-      nestObject: NestObjectSceneDef,
-      color: ColorSceneDef,
-      mask: MaskSceneDef,
-      ninePatch: NinePatchSceneDef,
-      pointer: PointerSceneDef,
-      text: TextSceneDef,
-      audio: AudioSceneDef,
-      loader: LoaderSceneDef,
-      particle: ParticleSceneDef,
-      shader: ShaderSceneDef,
-      feature: FeatureSceneDef,
-      preload: PreloadSceneDef,
-    },
-  });
   sceneRouter.onLoadingStateChanged.on((state) => {
     loadingView.setState(state);
   });

@@ -1,7 +1,7 @@
 import { DisplayObject, type DisplayObjectProps, Sprite, Texture } from '@rutan/midorable';
-import { sceneRouter } from '../_share';
+import { defineScene } from '../_share';
 
-export const NestObjectSceneDef = sceneRouter.defineScene('nestObject', {
+export const NestObjectSceneDef = defineScene('nestObject', {
   create({ context }) {
     return new NestObjectSceneView({ context });
   },

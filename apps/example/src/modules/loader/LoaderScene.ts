@@ -1,8 +1,8 @@
 import { DisplayObject, type DisplayObjectProps } from '@rutan/midorable';
-import { sceneRouter } from '../_share';
+import { defineScene } from '../_share';
 import { LoadSprite } from './LoadSprite';
 
-export const LoaderSceneDef = sceneRouter.defineScene('loader', {
+export const LoaderSceneDef = defineScene('loader', {
   create({ context }) {
     return new LoaderSceneView({ context });
   },

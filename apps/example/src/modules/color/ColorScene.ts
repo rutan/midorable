@@ -1,14 +1,14 @@
 import { DisplayObject, type DisplayObjectProps, imageAsset, Sprite, type SpriteProps } from '@rutan/midorable';
-import { sceneRouter, type AssetsOf } from '../_share';
+import { defineScene, defineAssets, type AssetsOf } from '../_share';
 
-const colorSceneAssets = sceneRouter.defineAssets('color', () => ({
+const colorSceneAssets = defineAssets('color', () => ({
   back: imageAsset('img/back.jpg'),
   image: imageAsset('img/image_pixel.png'),
 }));
 
 type ColorSceneAssets = AssetsOf<typeof colorSceneAssets>;
 
-export const ColorSceneDef = sceneRouter.defineScene('color', {
+export const ColorSceneDef = defineScene('color', {
   getAssets: colorSceneAssets,
   create({ context, assets }) {
     return new ColorSceneView({ context, assets });

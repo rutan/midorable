@@ -1,7 +1,7 @@
 import { DisplayObject, type DisplayObjectProps, imageAsset, Sprite } from '@rutan/midorable';
-import { sceneRouter, type AssetsOf } from '../_share';
+import { defineScene, defineAssets, type AssetsOf } from '../_share';
 
-const imageAssets = sceneRouter.defineAssets('image', () => {
+const imageAssets = defineAssets('image', () => {
   return {
     imagePixel: imageAsset('img/image_pixel.png'),
   } as const;
@@ -9,7 +9,7 @@ const imageAssets = sceneRouter.defineAssets('image', () => {
 
 type ImageSceneAssets = AssetsOf<typeof imageAssets>;
 
-export const ImageSceneDef = sceneRouter.defineScene('image', {
+export const ImageSceneDef = defineScene('image', {
   getAssets: imageAssets,
   create({ context, assets }) {
     return new ImageSceneView({ context, assets });

@@ -1,14 +1,14 @@
 import { DisplayObject, type DisplayObjectProps, imageAsset, Sprite } from '@rutan/midorable';
-import { sceneRouter, type AssetsOf } from '../_share';
+import { defineScene, defineAssets, type AssetsOf } from '../_share';
 
-const maskSceneAssets = sceneRouter.defineAssets('mask', () => ({
+const maskSceneAssets = defineAssets('mask', () => ({
   back: imageAsset('img/back.jpg'),
   maskImage: imageAsset('img/character.png'),
 }));
 
 type MaskSceneAssets = AssetsOf<typeof maskSceneAssets>;
 
-export const MaskSceneDef = sceneRouter.defineScene('mask', {
+export const MaskSceneDef = defineScene('mask', {
   getAssets: maskSceneAssets,
   create({ context, assets }) {
     return new MaskSceneView({ context, assets });

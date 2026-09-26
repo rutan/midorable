@@ -40,7 +40,8 @@ export interface SceneView {
  *
  * @remarks
  * `getAssets` でシーン遷移前に必要なアセットを定義し、
- * `create` でシーンの表示ルートを生成する。
+ * `create` で呼び出しごとに新しいシーンの表示ルートを生成する。
+ * 定義は複数の SceneRouter で共有できる。アプリ固有の状態は引数の context / navigator から扱う。
  */
 export interface SceneDefinition<
   TRoutes extends SceneRouteMap,

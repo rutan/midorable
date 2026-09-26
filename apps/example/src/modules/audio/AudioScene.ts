@@ -1,15 +1,15 @@
 import { audioAsset, DisplayObject, type DisplayObjectProps } from '@rutan/midorable';
-import { sceneRouter, type AssetsOf } from '../_share';
+import { defineScene, defineAssets, type AssetsOf } from '../_share';
 import { AudioPlayerSprite } from './AudioPlayerSprite';
 
-const audioSceneAssets = sceneRouter.defineAssets('audio', () => ({
+const audioSceneAssets = defineAssets('audio', () => ({
   bgmAudio: audioAsset('audio/sample-bgm.mp3'),
   seAudio: audioAsset('audio/sample-se.mp3'),
 }));
 
 type AudioSceneAssets = AssetsOf<typeof audioSceneAssets>;
 
-export const AudioSceneDef = sceneRouter.defineScene('audio', {
+export const AudioSceneDef = defineScene('audio', {
   getAssets: audioSceneAssets,
   create({ context, assets }) {
     return new AudioSceneView({ context, assets });

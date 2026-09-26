@@ -1,4 +1,4 @@
-import { createSceneRouter, type AssetsOf } from '@rutan/midorable/utils/scene';
+import { createSceneHelpers, type AssetsOf } from '@rutan/midorable/utils/scene';
 
 export type { AssetsOf };
 
@@ -33,7 +33,7 @@ export type SceneMap = {
 
 export type SceneName = keyof SceneMap;
 
-export const sceneRouter = createSceneRouter<SceneMap>();
+export const { defineScene, defineAssets } = createSceneHelpers<SceneMap>();
 
 export interface SceneMeta {
   showBackButton?: boolean;

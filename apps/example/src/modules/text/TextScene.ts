@@ -1,7 +1,7 @@
 import { DisplayObject, type DisplayObjectProps, Sprite, Texture } from '@rutan/midorable';
-import { sceneRouter } from '../_share';
+import { defineScene } from '../_share';
 
-export const TextSceneDef = sceneRouter.defineScene('text', {
+export const TextSceneDef = defineScene('text', {
   create({ context }) {
     return new TextSceneView({ context });
   },

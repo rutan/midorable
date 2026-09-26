@@ -2,6 +2,7 @@ import { type AppContext, createEventHandlers, DisplayObject, Loader } from '../
 import type { SceneCreateResult, SceneDefinitions, SceneView } from '../definition';
 import { SceneAssetLoadingError } from '../errors';
 import type { SceneNavigator } from '../navigator';
+import type { SceneRouterConfig } from '../SceneRouter';
 import type {
   SceneAssetLoadingSnapshot,
   SceneChangeEvent,
@@ -9,15 +10,6 @@ import type {
   SceneNavigationArgs,
   SceneRouteMap,
 } from '../types';
-
-/**
- * シーンランタイムの初期化パラメータ
- */
-interface SceneRuntimeProps<TRoutes extends SceneRouteMap> {
-  root: DisplayObject;
-  context: AppContext;
-  routes: SceneDefinitions<TRoutes>;
-}
 
 interface ManagedScene<TRoutes extends SceneRouteMap> {
   key: keyof TRoutes;
@@ -45,12 +37,13 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
   private _currentManagedScene: ManagedScene<TRoutes> | null = null;
   private _sceneStack: ManagedScene<TRoutes>[] = [];
   private _navigationQueue = Promise.resolve();
+  private _disposePromise: Promise<void> | null = null;
   private _onSceneChanged = createEventHandlers<SceneChangeEvent<TRoutes>>();
   private _onLoadingStateChanged = createEventHandlers<SceneLoadingState<TRoutes>>();
 
   readonly navigator: SceneNavigator<TRoutes>;
 
-  constructor({ root, context, routes }: SceneRuntimeProps<TRoutes>) {
+  constructor({ root, context, routes }: SceneRouterConfig<TRoutes>) {
     this._root = root;
     this._context = context;
     this._routes = routes;
@@ -204,7 +197,28 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
     });
   }
 
+  dispose(): Promise<void> {
+    if (this._disposePromise) {
+      return this._disposePromise;
+    }
+    this._disposePromise = this._navigationQueue.then(async () => {
+      const scenes = this._currentManagedScene ? [this._currentManagedScene, ...this._sceneStack] : this._sceneStack;
+      this._currentManagedScene = null;
+      this._sceneStack = [];
+      try {
+        await this._disposeScenes(scenes);
+      } finally {
+        this._onSceneChanged.listeners.offAll();
+        this._onLoadingStateChanged.listeners.offAll();
+      }
+    });
+    return this._disposePromise;
+  }
+
   private _enqueueNavigation(task: () => Promise<void>) {
+    if (this._disposePromise) {
+      return Promise.reject(new Error('SceneRouter has been disposed'));
+    }
     const nextNavigation = this._navigationQueue.then(task);
     this._navigationQueue = nextNavigation.catch(() => {});
     return nextNavigation;
@@ -334,14 +348,28 @@ export class SceneRuntime<TRoutes extends SceneRouteMap> {
   }
 
   private async _disposeManagedScene(scene: ManagedScene<TRoutes>) {
-    await scene.dispose?.();
-    scene.view.dispose();
-    await scene.loader.dispose();
+    try {
+      await scene.dispose?.();
+    } finally {
+      try {
+        scene.view.dispose();
+      } finally {
+        await scene.loader.dispose();
+      }
+    }
   }
 
   private async _disposeScenes(scenes: ManagedScene<TRoutes>[]) {
+    const errors: unknown[] = [];
     for (const scene of scenes) {
-      await this._disposeManagedScene(scene);
+      try {
+        await this._disposeManagedScene(scene);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length > 0) {
+      throw new AggregateError(errors, 'Failed to dispose scenes');
     }
   }
 

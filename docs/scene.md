@@ -20,7 +20,13 @@
 
 ```ts
 import { DisplayObject, Sprite, imageAsset, type DisplayObjectProps } from '@rutan/midorable';
-import { createSceneRouter, type AssetsOf, type SceneNavigator } from '@rutan/midorable/utils/scene';
+import {
+  createSceneHelpers,
+  createSceneRouter,
+  type AssetsOf,
+  type SceneDefinitions,
+  type SceneNavigator,
+} from '@rutan/midorable/utils/scene';
 
 type SceneMap = {
   title: undefined;
@@ -28,13 +34,15 @@ type SceneMap = {
   result: { score: number };
 };
 
-const sceneRouter = createSceneRouter<SceneMap>();
+export const { defineScene, defineAssets } = createSceneHelpers<SceneMap>();
 ```
+
+`createSceneHelpers()` は、シーンキーとパラメータ型を固定した定義用関数を返します。アプリケーションの状態を持たないため、モジュール単位で共有し、各シーンのファイルから関数をimportして使えます。
 
 シーンごとのアセットは `defineAssets()` で定義します。関数には遷移先の `sceneKey`、`params`、シーン専用の `context` が渡されます。
 
 ```ts
-const stageAssets = sceneRouter.defineAssets('stage', ({ params }) => {
+const stageAssets = defineAssets('stage', ({ params }) => {
   return {
     background: imageAsset(`assets/stages/${params.stageId}/background.png`),
     player: imageAsset('assets/player.png'),
@@ -47,13 +55,13 @@ type StageAssets = AssetsOf<typeof stageAssets>;
 シーン本体は `defineScene()` で定義します。`create()` では `DisplayObject` を直接返すか、追加の破棄処理が必要な場合は `{ view, dispose }` を返します。
 
 ```ts
-const TitleSceneDef = sceneRouter.defineScene('title', {
+const TitleSceneDef = defineScene('title', {
   create({ context, navigator }) {
     return new TitleSceneView({ context, navigator });
   },
 });
 
-const StageSceneDef = sceneRouter.defineScene('stage', {
+const StageSceneDef = defineScene('stage', {
   meta: {
     showPauseButton: true,
   },
@@ -70,7 +78,7 @@ const StageSceneDef = sceneRouter.defineScene('stage', {
   },
 });
 
-const ResultSceneDef = sceneRouter.defineScene('result', {
+const ResultSceneDef = defineScene('result', {
   create({ context, params }) {
     return new ResultSceneView({ context, score: params.score });
   },
@@ -110,23 +118,29 @@ class StageSceneView extends DisplayObject {
 }
 ```
 
-最後に `setup()` でルート表示オブジェクト、アプリケーションの `context`、シーン定義を登録してから遷移します。
+シーン定義を `routes` にまとめ、アプリケーションごとに `createSceneRouter()` で操作用インスタンスを生成します。
 
 ```ts
-sceneRouter.setup({
+// シーン定義は複数のアプリケーションで共有できる
+const routes = {
+  title: TitleSceneDef,
+  stage: StageSceneDef,
+  result: ResultSceneDef,
+} satisfies SceneDefinitions<SceneMap>;
+
+// アプリケーションの起動時に生成する
+const sceneRouter = createSceneRouter<SceneMap>({
   root: app.root,
   context: app.context,
-  routes: {
-    title: TitleSceneDef,
-    stage: StageSceneDef,
-    result: ResultSceneDef,
-  },
+  routes,
 });
 
 await sceneRouter.goTo('title');
 ```
 
-`setup()` は1回だけ呼び出せます。`setup()` 前でもイベント購読はできますが、`goTo()` や `currentView` などランタイムへアクセスするAPIは例外を投げます。
+`SceneRouter` は、現在のシーン・退避中のシーン・遷移キュー・イベント購読をインスタンスごとに保持します。生成直後から操作でき、初回の遷移前には `currentView` / `currentRoute` が `null` を返します。初回のイベントも受け取りたい場合は、`goTo()` より前に購読してください。
+
+シーン定義・アセット仕様・`meta` は共有する読み取り専用の情報として扱います。`create()` は呼ばれるたびに新しいviewを生成し、アプリケーション固有の状態や操作には引数の `context` / `navigator` を使ってください。モジュール変数やクロージャに保持した可変状態は、routerを分けても共有されます。
 
 ## シーン遷移
 
@@ -143,7 +157,7 @@ await sceneRouter.goTo('title');
 `getAssets` を持つシーンでは、遷移前にアセットが自動でロードされます。ロード済みアセットは `create()` の `assets` に渡されます。
 
 ```ts
-const assets = sceneRouter.defineAssets(
+const assets = defineAssets(
   'stage',
   ({ params }) =>
     ({
@@ -151,7 +165,7 @@ const assets = sceneRouter.defineAssets(
     }) as const,
 );
 
-const StageSceneDef = sceneRouter.defineScene('stage', {
+const StageSceneDef = defineScene('stage', {
   getAssets: assets,
   create({ context, assets }) {
     return new Sprite({
@@ -219,3 +233,16 @@ const route = sceneRouter.currentRoute;
 ```
 
 `currentRoute` は、まだシーンが表示されていない場合は `null` です。表示中の場合は `{ sceneKey, params, meta }` を返します。
+
+## アプリケーションの終了
+
+`SceneRouter` を作成した側が `dispose()` を呼びます。現在のシーンと、`pushScene()` で退避中のシーンについて、追加の `dispose`、view、専用loaderを破棄し、routerのイベント購読も解除します。rootやアプリケーション共通のloaderは破棄しません。
+
+```ts
+await app.stop();
+try {
+  await sceneRouter.dispose();
+} finally {
+  await app.dispose();
+}
+```

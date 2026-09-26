@@ -1,5 +1,5 @@
 import { DisplayObject, type DisplayObjectProps, Sprite, type SpriteProps, Texture } from '@rutan/midorable';
-import { sceneRouter } from '../_share';
+import { defineScene } from '../_share';
 
 const COLORS = [
   { r: 255, g: 0, b: 0, a: 1 },
@@ -20,7 +20,7 @@ const COLORS = [
   { r: 255, g: 192, b: 203, a: 1 },
 ];
 
-export const RectangleSceneDef = sceneRouter.defineScene('rectangle', {
+export const RectangleSceneDef = defineScene('rectangle', {
   create({ context }) {
     return new RectangleSceneView({ context });
   },

@@ -85,9 +85,7 @@ describe('SceneRouter runtime', () => {
     const root = new DisplayObject({ context: app.context });
     let receivedParams: TestRoutes['second'] | undefined;
 
-    const router = createSceneRouter<TestRoutes>();
-
-    router.setup({
+    const router = createSceneRouter<TestRoutes>({
       root,
       context: app.context,
       routes: {
@@ -137,9 +135,7 @@ describe('SceneRouter runtime', () => {
     const root = new DisplayObject({ context: app.context });
     const loaders: AppContext['loader'][] = [];
 
-    const router = createSceneRouter<TestRoutes>();
-
-    router.setup({
+    const router = createSceneRouter<TestRoutes>({
       root,
       context: app.context,
       routes: {
@@ -189,8 +185,7 @@ describe('SceneRouter runtime', () => {
     const root = new DisplayObject({ context: app.context });
     const parentAsset = await app.context.loader.load(imageAsset('parent.png'), { key: 'shared' });
     let sceneLoader!: AppContext['loader'];
-    const router = createSceneRouter<{ first: undefined; second: undefined }>();
-    router.setup({
+    const router = createSceneRouter<{ first: undefined; second: undefined }>({
       root,
       context: app.context,
       routes: {
@@ -234,12 +229,7 @@ describe('SceneRouter runtime', () => {
       imagePixel: imageAsset('img/preloaded.png'),
     });
 
-    const router = createSceneRouter<TestRoutes>();
-
-    router.onLoadingStateChanged.on((state) => {
-      loadingStateRecorder.handle(state);
-    });
-    router.setup({
+    const router = createSceneRouter<TestRoutes>({
       root,
       context: app.context,
       routes: {
@@ -269,6 +259,9 @@ describe('SceneRouter runtime', () => {
           },
         },
       },
+    });
+    router.onLoadingStateChanged.on((state) => {
+      loadingStateRecorder.handle(state);
     });
 
     await router.goTo('first');
@@ -326,12 +319,7 @@ describe('SceneRouter runtime', () => {
         voice: { type: 'audio', src: 'audio/voice.mp3' },
       }) as const;
 
-    const router = createSceneRouter<TestRoutes>();
-
-    router.onLoadingStateChanged.on((state) => {
-      loadingStateRecorder.handle(state);
-    });
-    router.setup({
+    const router = createSceneRouter<TestRoutes>({
       root,
       context: app.context,
       routes: {
@@ -359,6 +347,9 @@ describe('SceneRouter runtime', () => {
           },
         },
       },
+    });
+    router.onLoadingStateChanged.on((state) => {
+      loadingStateRecorder.handle(state);
     });
 
     await expect(router.goTo('first')).rejects.toBeInstanceOf(SceneAssetLoadingError);
@@ -393,12 +384,7 @@ describe('SceneRouter runtime', () => {
       return createAudioAsset(spec.src);
     });
 
-    const router = createSceneRouter<TestRoutes>();
-
-    router.onLoadingStateChanged.on((state) => {
-      loadingStateRecorder.handle(state);
-    });
-    router.setup({
+    const router = createSceneRouter<TestRoutes>({
       root,
       context: app.context,
       routes: {
@@ -429,6 +415,9 @@ describe('SceneRouter runtime', () => {
           },
         },
       },
+    });
+    router.onLoadingStateChanged.on((state) => {
+      loadingStateRecorder.handle(state);
     });
 
     await router.goTo('first');
