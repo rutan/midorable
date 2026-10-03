@@ -1,6 +1,6 @@
 {
   "name": "@rutan/midorable-platform-browser",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Browser platform package for Midorable.",
   "keywords": [
     "game"
