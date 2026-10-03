@@ -1,5 +1,20 @@
 # @rutan/midorable-platform-browser
 
+## 0.4.0
+
+### Minor Changes
+
+- [#14](https://github.com/rutan/midorable/pull/14) [`b1fc152`](https://github.com/rutan/midorable/commit/b1fc15224843b7b190bf09e9e5f010867ee6f2dc) Thanks [@rutan](https://github.com/rutan)! - remove isShared flag from Texture
+
+### Patch Changes
+
+- [#19](https://github.com/rutan/midorable/pull/19) [`a26566b`](https://github.com/rutan/midorable/commit/a26566b588afd14de386e1ae8833b9e8ef5f7631) Thanks [@rutan](https://github.com/rutan)! - Decode base64 audio data URLs locally so loading does not require CSP permission to fetch data URLs.
+
+- [#16](https://github.com/rutan/midorable/pull/16) [`af6a8d6`](https://github.com/rutan/midorable/commit/af6a8d615c52f22745805f827be24c560ddb4989) Thanks [@rutan](https://github.com/rutan)! - fix Loader dispose
+
+- Updated dependencies [[`b1fc152`](https://github.com/rutan/midorable/commit/b1fc15224843b7b190bf09e9e5f010867ee6f2dc), [`af6a8d6`](https://github.com/rutan/midorable/commit/af6a8d615c52f22745805f827be24c560ddb4989), [`3bf8751`](https://github.com/rutan/midorable/commit/3bf875165586745fba97a8146b4ff35ca336f7f6)]:
+  - @rutan/midorable@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes
