@@ -25,12 +25,17 @@ export class BrowserAudioBackend implements AudioBackend {
   }
 
   async loadAudio(url: string, signal?: AbortSignal): Promise<AudioAsset> {
-    const response = await fetch(url, { signal });
-    if (!response.ok) {
-      throw new Error(`Failed to load audio asset: ${url} (${response.status} ${response.statusText})`);
+    signal?.throwIfAborted();
+    let data = decodeBase64DataUrl(url);
+    if (!data) {
+      const response = await fetch(url, { signal });
+      if (!response.ok) {
+        throw new Error(`Failed to load audio asset: ${url} (${response.status} ${response.statusText})`);
+      }
+      data = await response.arrayBuffer();
     }
-    const data = await response.arrayBuffer();
     const buffer = await this._context.decodeAudioData(data);
+    signal?.throwIfAborted();
     return { id: url, type: 'audio', duration: buffer.duration, source: buffer };
   }
 
@@ -178,4 +183,28 @@ export class BrowserAudioBackend implements AudioBackend {
 
     return candidate;
   }
+}
+
+function decodeBase64DataUrl(url: string): ArrayBuffer | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'data:') return null;
+
+  // Keep the query as part of the payload, but exclude the URL fragment as fetch does.
+  parsed.hash = '';
+  const content = parsed.href.slice('data:'.length);
+  const comma = content.indexOf(',');
+  if (comma === -1 || !/; *base64$/i.test(content.slice(0, comma).trim())) return null;
+
+  // Decode in memory: fetch(data:) can be forbidden by the page's connect-src CSP.
+  const binary = atob(decodeURIComponent(content.slice(comma + 1)));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes.buffer;
 }

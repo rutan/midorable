@@ -7,6 +7,7 @@ import {
   type Texture,
 } from '@rutan/midorable';
 import { createWebGlPlatform } from '../../../../src';
+import { BrowserAudioBackend } from '../../../../src/AudioBackend';
 import type { BrowserPlatformBase } from '../../../../src/BrowserPlatformBase';
 import { createCanvasPlatform } from '../../../../src/canvas';
 import { createWebGpuPlatform } from '../../../../src/webgpu';
@@ -516,6 +517,7 @@ function cleanup() {
 
 declare global {
   interface Window {
+    __midorableAudioSmoke(url: string): Promise<{ duration: number; channels: number }>;
     __midorableBrowserSmoke: {
       supports(kind: PlatformKind): Promise<boolean>;
       run(kind: PlatformKind, name: SmokeName): Promise<SmokeResult>;
@@ -530,4 +532,15 @@ window.__midorableBrowserSmoke = {
   run,
   benchmark,
   cleanup,
+};
+
+window.__midorableAudioSmoke = async (url) => {
+  const backend = new BrowserAudioBackend();
+  try {
+    const asset = await backend.loadAudio(url);
+    const buffer = asset.source as AudioBuffer;
+    return { duration: buffer.duration, channels: buffer.numberOfChannels };
+  } finally {
+    backend.dispose();
+  }
 };
