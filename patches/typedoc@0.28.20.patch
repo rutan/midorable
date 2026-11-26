@@ -1,0 +1,17 @@
+diff --git a/dist/node-utils.js b/dist/node-utils.js
+--- a/dist/node-utils.js
++++ b/dist/node-utils.js
+@@ -325,12 +325,7 @@ function glob(pattern, root, options = {}) {
+       if (childPath[childPath.length - 1] === "node_modules" && !shouldIncludeNodeModules) {
+         return false;
+       }
+-      return mini.set.some((row) => mini.matchOne(
+-        childPath,
+-        row,
+-        /* partial */
+-        true
+-      ));
++      return mini.match(childPath.join("/"), true);
+     },
+     matchDirectories: options.includeDirectories,
+     followSymlinks: options.followSymlinks
