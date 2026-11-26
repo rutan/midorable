@@ -87,12 +87,10 @@ function createMockRenderer() {
 
 function createMockAudio() {
   return {
-    play: vi.fn(
-      (_audioAsset: AudioAsset): AudioInstance => ({
-        id: 1,
-        source: null,
-      }),
-    ),
+    play: vi.fn((_audioAsset: AudioAsset): AudioInstance => ({
+      id: 1,
+      source: null,
+    })),
     updatePlayback: vi.fn(),
     stop: vi.fn(),
     setMasterVolume: vi.fn(),
