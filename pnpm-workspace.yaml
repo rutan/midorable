@@ -2,6 +2,16 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
-onlyBuiltDependencies:
-  - "@parcel/watcher"
-  - "esbuild"
+minimumReleaseAge: 4320
+
+allowBuilds:
+  '@parcel/watcher': true
+  esbuild: true
+
+overrides:
+  '@typescript-eslint/utils': ^8.67.0
+  minimatch@10: ^11.0.9
+  tinypool@2.1.0: 2.1.2
+
+patchedDependencies:
+  typedoc@0.28.20: patches/typedoc@0.28.20.patch
