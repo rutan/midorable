@@ -272,6 +272,18 @@ describe('BrowserInput', () => {
     expect(input.pollSnapshot().pointers).toHaveLength(0);
   });
 
+  it('remaps a stationary pointer when the logical size changes', () => {
+    stubBrowserGlobals();
+    const mock = createMockElement();
+    const input = new BrowserInput(mock.element as unknown as HTMLElement);
+    input.setViewport({ width: 300, height: 200, scale: 1, offsetX: 0, offsetY: 0 });
+    mock.emit('mousedown', { button: 0, clientX: 110, clientY: 80 });
+    expect(input.pollSnapshot().pointers[0]).toMatchObject({ x: 100, y: 60, pressedLeft: true });
+
+    input.setViewport({ width: 200, height: 200, scale: 2, offsetX: 50, offsetY: 0 });
+    expect(input.pollSnapshot().pointers[0]).toMatchObject({ x: 25, y: 30, pressedLeft: true });
+  });
+
   it('clears keyboard state when document becomes hidden', () => {
     const { windowStub, documentStub } = stubBrowserGlobals();
     const mock = createMockElement();
