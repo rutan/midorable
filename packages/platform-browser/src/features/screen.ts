@@ -53,10 +53,14 @@ export class BrowserScreenFeature implements SystemScreenFeature {
 
     const update = () => this.notifyIfChanged();
     const win = typeof window !== 'undefined' ? window : undefined;
-    let observer: ResizeObserver | null = null;
+    const observers: ResizeObserver[] = [];
     if (typeof ResizeObserver !== 'undefined') {
-      observer = new ResizeObserver(update);
-      observer.observe(this._element);
+      // client サイズは padding を含む。各ボックスを別々に監視する。
+      for (const box of ['content-box', 'border-box'] as const) {
+        const observer = new ResizeObserver(update);
+        observer.observe(this._element, { box });
+        observers.push(observer);
+      }
     }
     win?.addEventListener('resize', update);
     win?.addEventListener('orientationchange', update);
@@ -64,7 +68,7 @@ export class BrowserScreenFeature implements SystemScreenFeature {
 
     this._lastState = this.getState();
     this._unsubscribe = () => {
-      observer?.disconnect();
+      for (const observer of observers) observer.disconnect();
       win?.removeEventListener('resize', update);
       win?.removeEventListener('orientationchange', update);
       win?.visualViewport?.removeEventListener('resize', update);
@@ -81,7 +85,8 @@ export class BrowserScreenFeature implements SystemScreenFeature {
     const state = this.getState();
     if (this._lastState && isSameState(this._lastState, state)) return;
     this._lastState = state;
-    for (const listener of this._listeners) {
+    const snapshot = [...this._listeners];
+    for (const listener of snapshot) {
       try {
         listener(state);
       } catch (error) {

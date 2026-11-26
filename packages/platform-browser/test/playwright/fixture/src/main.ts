@@ -12,6 +12,7 @@ import { createWebGlPlatform } from '../../../../src';
 import { BrowserAudioBackend } from '../../../../src/AudioBackend';
 import type { BrowserPlatformBase } from '../../../../src/BrowserPlatformBase';
 import { createCanvasPlatform } from '../../../../src/canvas';
+import { BrowserScreenFeature } from '../../../../src/features/screen';
 import { createWebGpuPlatform } from '../../../../src/webgpu';
 
 type PlatformKind = 'canvas' | 'webgl' | 'webgpu';
@@ -519,6 +520,7 @@ function cleanup() {
 
 declare global {
   interface Window {
+    __midorableScreenFeature: typeof BrowserScreenFeature;
     __midorableAudioSmoke(url: string): Promise<{ duration: number; channels: number }>;
     __midorableBrowserSmoke: {
       supports(kind: PlatformKind): Promise<boolean>;
@@ -529,6 +531,7 @@ declare global {
   }
 }
 
+window.__midorableScreenFeature = BrowserScreenFeature;
 window.__midorableBrowserSmoke = {
   supports,
   run,

@@ -94,25 +94,43 @@ describe('BrowserScreenFeature', () => {
     });
   });
 
+  it('calls a listener that re-registers itself only once per change', () => {
+    const element = createElement();
+    const feature = new BrowserScreenFeature(element as unknown as HTMLElement);
+    const listener = vi.fn().mockImplementationOnce(() => {
+      feature.onChange.off(listener);
+      feature.onChange.on(listener);
+    });
+    feature.onChange.on(listener);
+
+    element.clientWidth = 500;
+    env.resizeObservers[0].callback();
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    element.clientWidth = 600;
+    env.dispatchWindow('resize');
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
   it('unsubscribes when all listeners are removed', () => {
     const feature = new BrowserScreenFeature(createElement() as unknown as HTMLElement);
     const listener = vi.fn();
 
     feature.onChange.on(listener);
-    expect(env.resizeObservers).toHaveLength(1);
+    expect(env.resizeObservers).toHaveLength(2);
     expect(env.windowListeners.get('resize')?.size).toBe(1);
 
     feature.onChange.off(listener);
-    expect(env.resizeObservers[0].disconnect).toHaveBeenCalled();
+    for (const observer of env.resizeObservers) expect(observer.disconnect).toHaveBeenCalled();
     expect(env.windowListeners.get('resize')?.size).toBe(0);
   });
 
-  it('disconnects the resize observer and removes window listeners on dispose', () => {
+  it('disconnects the resize observers and removes window listeners on dispose', () => {
     const feature = new BrowserScreenFeature(createElement() as unknown as HTMLElement);
     feature.onChange.on(vi.fn());
 
     feature.dispose();
-    expect(env.resizeObservers[0].disconnect).toHaveBeenCalled();
+    for (const observer of env.resizeObservers) expect(observer.disconnect).toHaveBeenCalled();
     expect(env.windowListeners.get('resize')?.size).toBe(0);
     expect(env.windowListeners.get('orientationchange')?.size).toBe(0);
   });
