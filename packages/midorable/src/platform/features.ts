@@ -1,3 +1,5 @@
+import type { Size } from './types';
+
 /**
  * 共通で実装されることを推奨する『半公式』機能群
  *
@@ -6,6 +8,11 @@
  * プラットフォームは、これらの機能の一部または全部をサポートしなくても良い。
  */
 export interface StandardPlatformFeatureRegistry {
+  /**
+   * ゲームの表示領域に関する機能
+   */
+  'system.screen': SystemScreenFeature;
+
   /**
    * フォント機能
    */
@@ -47,6 +54,35 @@ export interface StandardPlatformFeatureRegistry {
    * 引数には終了コードを指定できるが、プラットフォームによっては無視されることもある。
    */
   'system.exit': SystemExitFeature;
+}
+
+/**
+ * 画面状態
+ *
+ * @remarks
+ * 値は「コンテナ座標系」で表す。
+ * コンテナ座標系は、ゲームに割り当てられた領域の左上を原点とし、
+ * プラットフォームのレイアウト単位（ブラウザであれば CSS ピクセル）を単位とする座標系である。
+ * ゲームの論理座標系とは異なるため、論理座標で扱う場合は利用側で変換すること。
+ */
+export interface SystemScreenState {
+  /**
+   * ゲームに割り当てられた領域のサイズ
+   */
+  readonly viewSize: Readonly<Size>;
+}
+
+export interface SystemScreenFeature {
+  /** 現在の画面状態を取得 */
+  getState(): SystemScreenState;
+
+  /**
+   * 画面領域が変化したときに呼び出されるリスナーを登録する
+   */
+  readonly onChange: {
+    on(listener: (state: SystemScreenState) => void): void;
+    off(listener: (state: SystemScreenState) => void): void;
+  };
 }
 
 export interface SystemFontFeature {

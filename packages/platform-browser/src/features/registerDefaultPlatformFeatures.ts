@@ -1,7 +1,12 @@
 import { BrowserPlatformBase } from '../BrowserPlatformBase';
+import { BrowserScreenFeature } from './screen';
 
 export function registerDefaultPlatformFeatures(platform: BrowserPlatformBase) {
   const fontLoadTasks = new Map<string, Promise<void>>();
+
+  const screen = new BrowserScreenFeature(platform.element);
+  platform.setFeature('system.screen', screen);
+  platform.addDisposeFunction(() => screen.dispose());
 
   platform.setFeature('system.font', {
     async loadFont(fontName: string, url: string) {
