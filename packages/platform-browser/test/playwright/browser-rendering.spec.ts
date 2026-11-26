@@ -37,7 +37,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const kind of pixelRendererKinds) {
-  test(`${kind} renders a sprite with expected pixels`, async ({ page }) => {
+  test(`${kind} renders a sprite at the new logical resolution`, async ({ page }) => {
     await skipIfUnsupported(page, kind);
 
     const result = await renderSmoke(page, kind, 'sprite');

@@ -14,6 +14,8 @@ import { Viewport } from './types';
 interface PointerInternalState {
   id: number;
   kind: PointerKind;
+  clientX: number;
+  clientY: number;
   x: number;
   y: number;
   inBounds: boolean;
@@ -323,6 +325,9 @@ export class BrowserInput implements InputBackend {
 
   setViewport(viewport: Viewport) {
     this._viewport = viewport;
+    for (const pointer of this._pointerMap.values()) {
+      this.updatePointerPositionFromClient(pointer, pointer.clientX, pointer.clientY);
+    }
   }
 
   dispose() {
@@ -379,6 +384,8 @@ export class BrowserInput implements InputBackend {
       pointer = {
         id,
         kind,
+        clientX: 0,
+        clientY: 0,
         x: 0,
         y: 0,
         inBounds: false,
@@ -420,6 +427,8 @@ export class BrowserInput implements InputBackend {
   }
 
   private updatePointerPositionFromClient(pointer: PointerInternalState, clientX: number, clientY: number) {
+    pointer.clientX = clientX;
+    pointer.clientY = clientY;
     const rect = this._element.getBoundingClientRect();
     const localX = clientX - rect.left;
     const localY = clientY - rect.top;

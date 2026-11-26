@@ -1,8 +1,9 @@
 import { GraphicsCapabilities, Platform, PlatformFeatureRegistry } from '../platform';
 import { FilterInstance, ShaderFilterDefinition, Texture } from '../platform';
-import { Color, CursorName, MediaQuery, MediaSupportLevel } from '../platform';
+import { Color, CursorName, MediaQuery, MediaSupportLevel, Size } from '../platform';
 import type { AppContext } from './AppContext';
 import { DisplayObject } from './displays';
+import { createEventHandlers } from './events';
 import { InputController } from './input';
 import { Loader } from './Loader';
 import { DefaultRenderCommandEncoder } from './rendering';
@@ -73,6 +74,7 @@ export class App {
   private _cursor: string | null = null;
   private _width: number;
   private _height: number;
+  private _onLogicalSizeChanged = createEventHandlers<Readonly<Size>>();
   private _fps: number;
   private _stats: AppStats;
   private _statsSampleFrameCount = 0;
@@ -140,25 +142,41 @@ export class App {
   }
 
   /**
-   * アプリケーションの論理画面幅
-   *
-   * @remarks
-   * 初期化時に指定された幅。
-   * 画面のリサイズなどで物理的な画面サイズが変わってもこの値は変わらない。
+   * 現在の論理画面幅
    */
   get width() {
     return this._width;
   }
 
   /**
-   * アプリケーションの論理画面高さ
-   *
-   * @remarks
-   * 初期化時に指定された高さ。
-   * 画面のリサイズなどで物理的な画面サイズが変わってもこの値は変わらない。
+   * 現在の論理画面高さ
    */
   get height() {
     return this._height;
+  }
+
+  /**
+   * 論理画面サイズの変更が反映されたときに、新しい幅と高さを通知する。
+   */
+  get onLogicalSizeChanged() {
+    return this._onLogicalSizeChanged.listeners;
+  }
+
+  /**
+   * ゲーム内の座標系の幅と高さを変更する。同じサイズを指定した場合は通知を省略する。
+   * @param width - 論理画面幅（正の整数）
+   * @param height - 論理画面高さ（正の整数）
+   */
+  setLogicalSize(width: number, height: number): void {
+    if (!Number.isSafeInteger(width) || width <= 0 || !Number.isSafeInteger(height) || height <= 0) {
+      throw new RangeError('Logical width and height must be positive integers');
+    }
+    if (width === this._width && height === this._height) return;
+
+    this._platform.host.resize(width, height);
+    this._width = width;
+    this._height = height;
+    this._onLogicalSizeChanged.emit({ width, height });
   }
 
   /**
@@ -354,6 +372,7 @@ export class App {
       }
     }
     this._root.dispose();
+    this._onLogicalSizeChanged.listeners.offAll();
     this._platform.dispose();
   }
 

@@ -1,6 +1,8 @@
 import {
+  App,
   DefaultRenderCommandEncoder,
   FilterInstance,
+  Sprite,
   type RenderCommandEncoder,
   type RenderState,
   type ShaderFilterDefinition,
@@ -140,12 +142,12 @@ async function createFilter(platform: BrowserPlatformBase, definition: ShaderFil
 async function runSpriteSmoke(kind: PlatformKind): Promise<SmokeResult> {
   const platform = await createPlatform(kind);
   activePlatform = platform;
-  platform.host.resize(64, 64);
+  const app = new App({ platform, width: 32, height: 32, backgroundColor: { r: 255, g: 0, b: 0, a: 1 } });
   const texture = drawSolidTexture(platform, 16, 16, '#00ff00');
-
-  renderFrame(platform, { r: 255, g: 0, b: 0, a: 1 }, (encoder) => {
-    encoder.drawSprite(texture, translatedState(8, 8));
-  });
+  app.root.addChild(new Sprite({ context: app.context, image: texture, x: 8, y: 8 }));
+  app.render();
+  app.setLogicalSize(64, 64);
+  app.render();
 
   await nextPaint();
   const canvasAttached = platform.canvas.parentElement === platform.element;

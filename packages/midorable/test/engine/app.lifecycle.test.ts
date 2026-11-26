@@ -3,6 +3,42 @@ import { App } from '../../src/engine/App';
 import { createImageAsset, createMockPlatform } from '../helpers/createMockPlatform';
 
 describe('App lifecycle', () => {
+  it('applies a logical size change before notifying listeners while running', async () => {
+    const { platform, host } = createMockPlatform();
+    const app = new App({ platform, width: 800, height: 600 });
+    await app.start();
+    const layout = vi.fn(() => {
+      expect(host.resize).toHaveBeenLastCalledWith(1280, 720);
+      expect([app.width, app.height]).toEqual([1280, 720]);
+    });
+    app.onLogicalSizeChanged.on(layout);
+    app.setLogicalSize(1280, 720);
+    app.setLogicalSize(1280, 720);
+
+    expect(host.resize.mock.calls).toEqual([
+      [800, 600],
+      [1280, 720],
+    ]);
+    expect(layout).toHaveBeenCalledExactlyOnceWith({ width: 1280, height: 720 });
+    expect(host.stopLoop).not.toHaveBeenCalled();
+    await app.dispose();
+  });
+
+  it('preserves the current size when a logical size is invalid', () => {
+    const { platform, host } = createMockPlatform();
+    const app = new App({ platform });
+    const layout = vi.fn();
+    app.onLogicalSizeChanged.on(layout);
+
+    for (const invalid of [0, -1, 1.5, Infinity, NaN]) {
+      expect(() => app.setLogicalSize(invalid, 600)).toThrow(RangeError);
+      expect(() => app.setLogicalSize(800, invalid)).toThrow(RangeError);
+    }
+    expect([app.width, app.height]).toEqual([800, 600]);
+    expect(host.resize).toHaveBeenCalledTimes(1);
+    expect(layout).not.toHaveBeenCalled();
+  });
+
   it('start is idempotent and starts loop once', async () => {
     const { platform } = createMockPlatform();
     const app = new App({ platform });

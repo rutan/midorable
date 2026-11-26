@@ -72,3 +72,25 @@ app.root.addChild(sprite);
 sprite.dispose();
 texture.dispose();
 ```
+
+## ゲーム中に論理解像度を変更する
+
+`app.setLogicalSize(width, height)` に変更後の幅と高さを渡します。
+`app.onLogicalSizeChanged` を購読することで、論理解像度が変更されたときに再配置処理を行えます。
+
+```typescript
+sprite.anchorX = 1;
+sprite.anchorY = 0;
+const layout = () => {
+  sprite.x = app.width - 16;
+  sprite.y = 16;
+};
+layout();
+app.onLogicalSizeChanged.on(layout);
+
+// 論理解像度の変更
+app.setLogicalSize(1280, 720);
+
+// 購読の終了
+app.onLogicalSizeChanged.off(layout);
+```
